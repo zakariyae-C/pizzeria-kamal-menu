@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administration · La Pizzeria Kamal</title>
+  <meta name="theme-color" content="#542414">
+  <link rel="icon" type="image/webp" href="img/logo.webp">
+  
+  <!-- Fonts: Plus Jakarta Sans & Cairo -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="admin-app">
+
+  <!-- Mobile Header Overlay -->
+  <div class="mobile-topbar">
+    <button class="mobile-toggle-btn" id="mobileMenuBtn" aria-label="Ouvrir le menu">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    </button>
+    <div class="mobile-brand">
+      <img src="img/logo.webp" alt="Kamal Logo" class="mobile-logo">
+      <span>Pizzeria Kamal</span>
+    </div>
+    <div class="mobile-status-dot" title="Système opérationnel"></div>
+  </div>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="#overview" class="brand-link">
+        <div class="brand-logo-container">
+          <img src="img/logo.webp" alt="Logo Pizzeria Kamal" class="brand-logo">
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">Pizzeria Kamal</span>
+          <span class="brand-tag">Administration SaaS</span>
+        </div>
+      </a>
+      <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Fermer">✕</button>
+    </div>
+
+    <div class="sidebar-nav-section">
+      <div class="nav-section-title">NAVIGATION PRINCIPALE</div>
+      <nav class="nav-list">
+        <button class="nav-link active" data-view="overview">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg>
+          </span>
+          <span class="nav-label">Vue d'ensemble</span>
+        </button>
+
+        <button class="nav-link" data-view="dishes">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+          </span>
+          <span class="nav-label">Plats & Tarifs</span>
+          <span class="nav-badge" id="dishesNavBadge">99</span>
+        </button>
+
+        <button class="nav-link" data-view="categories">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          </span>
+          <span class="nav-label">Catégories</span>
+          <span class="nav-badge subtle" id="catsNavBadge">17</span>
+        </button>
+
+        <button class="nav-link" data-view="featured">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          </span>
+          <span class="nav-label">Nos meilleurs plats</span>
+          <span class="nav-badge gold" id="featuredNavBadge">6</span>
+        </button>
+
+        <button class="nav-link" data-view="photos">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+          </span>
+          <span class="nav-label">Médiathèque</span>
+        </button>
+      </nav>
+
+      <div class="nav-section-title">CONFIGURATION</div>
+      <nav class="nav-list">
+        <button class="nav-link" data-view="settings">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </span>
+          <span class="nav-label">Paramètres restaurant</span>
+        </button>
+
+        <a href="index.html" target="_blank" class="nav-link external-link">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          </span>
+          <span class="nav-label">Voir le menu public</span>
+          <span class="nav-hint">↗</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Sidebar Footer / Admin Identity -->
+    <div class="sidebar-footer">
+      <div class="admin-profile-card">
+        <div class="admin-avatar" id="adminAvatar">PK</div>
+        <div class="admin-info">
+          <span class="admin-name" id="adminEmail">admin@pizzeriakamal.com</span>
+          <span class="admin-role" id="adminRole">
+            <span class="auth-dot"></span> Cloudflare Access
+          </span>
+        </div>
+        <button class="logout-btn" id="logoutBtn" title="Se déconnecter" aria-label="Déconnexion">
+          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Layout -->
+  <div class="main-wrapper">
+    <!-- Topbar Navigation -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="breadcrumbs">
+          <span class="breadcrumb-item">Administration</span>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current" id="breadcrumbTitle">Vue d'ensemble</span>
+        </div>
+        <h1 class="page-title" id="pageTitle">Vue d'ensemble</h1>
+      </div>
+
+      <div class="topbar-right">
+        <!-- Backend Status Indicator -->
+        <div class="sync-status-pill" id="syncStatusPill" title="Mode de synchronisation">
+          <span class="sync-dot"></span>
+          <span class="sync-text" id="syncStatusText">Cloudflare D1 prêt</span>
+        </div>
+
+        <!-- Global Action Buttons -->
+        <button class="btn btn-secondary" id="exportBtn" title="Télécharger une copie de sauvegarde JSON">
+          <svg viewBox="0 0 24 24" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Exporter JSON
+        </button>
+
+        <button class="btn btn-primary" id="topAddDishBtn">
+          <svg viewBox="0 0 24 24" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Ajouter un plat
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Views Container -->
+    <main class="content-body">
+
+      <!-- ==================================================================
+           VUE 1 : VUE D'ENSEMBLE
+           ================================================================== -->
+      <section class="admin-view active" id="view-overview">
+        <!-- Welcome Hero Banner -->
+        <div class="welcome-card">
+          <div class="welcome-text">
+            <span class="welcome-pill">Espace Administrateur · Pizzeria Kamal</span>
+            <h2>Tableau de bord du Menu Digital</h2>
+            <p>Gérez vos spécialités, vos options de prix (Solo, Normal, XL...), vos photos et vos catégories en temps réel.</p>
+          </div>
+          <div class="welcome-actions">
+            <button class="btn btn-primary" data-goto="dishes">
+              Gérer les plats &rarr;
+            </button>
+            <a href="index.html" target="_blank" class="btn btn-outline">
+              Tester le menu en direct ↗
+            </a>
+          </div>
+        </div>
+
+        <!-- Stats Grid (5 KPI Cards) -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-header">
+              <span class="stat-icon red">
+                <svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path></svg>
+              </span>
+              <span class="stat-label">Total Plats</span>
+            </div>
+            <div class="stat-val" id="statTotalDishes">—</div>
+            <div class="stat-foot">Dans toutes les rubriques</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-header">
+              <span class="stat-icon green">
+                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              </span>
+              <span class="stat-label">Disponibles</span>
+            </div>
+            <div class="stat-val" id="statAvailableDishes">—</div>
+            <div class="stat-foot">Visibles par les clients</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-header">
+              <span class="stat-icon orange">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+              </span>
+              <span class="stat-label">En rupture</span>
+            </div>
+            <div class="stat-val" id="statUnavailableDishes">—</div>
+            <div class="stat-foot">Masqués temporairement</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-header">
+              <span class="stat-icon gold">
+                <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              </span>
+              <span class="stat-label">Nos meilleurs plats</span>
+            </div>
+            <div class="stat-val" id="statFeaturedDishes">—</div>
+            <div class="stat-foot">En vedette dans le carrousel</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-header">
+              <span class="stat-icon brown">
+                <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              </span>
+              <span class="stat-label">Catégories</span>
+            </div>
+            <div class="stat-val" id="statTotalCategories">—</div>
+            <div class="stat-foot">Pizzas, Tacos, Burgers...</div>
+          </div>
+        </div>
+
+        <!-- 2-Column Dashboard Layout -->
+        <div class="dashboard-split">
+          <!-- Left Column: Recently Updated Dishes -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <h3>Plats récemment configurés</h3>
+                <p>Aperçu rapide de votre catalogue avec tarifs multi-tailles</p>
+              </div>
+              <button class="btn btn-sm btn-ghost" data-goto="dishes">Tout afficher &rarr;</button>
+            </div>
+            <div class="recent-dishes-table-wrap">
+              <table class="recent-table">
+                <thead>
+                  <tr>
+                    <th>PLAT</th>
+                    <th>CATÉGORIE</th>
+                    <th>TARIF(S)</th>
+                    <th>STATUT</th>
+                    <th>ACTION</th>
+                  </tr>
+                </thead>
+                <tbody id="recentDishesTable"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Right Column: Quick Actions & Quick Stats -->
+          <div class="panel-column">
+            <!-- Quick Actions Panel -->
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title-group">
+                  <h3>Actions Rapides</h3>
+                  <p>Accès directs aux opérations fréquentes</p>
+                </div>
+              </div>
+              <div class="quick-action-list">
+                <button class="quick-action-btn" id="quickAddDish">
+                  <div class="quick-icon-wrap red">
+                    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  </div>
+                  <div class="quick-info">
+                    <strong>Nouveau plat avec options de prix</strong>
+                    <span>Nom, photo, plusieurs tailles et montants</span>
+                  </div>
+                  <span class="quick-arrow">&rarr;</span>
+                </button>
+
+                <button class="quick-action-btn" data-goto="featured">
+                  <div class="quick-icon-wrap gold">
+                    <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                  </div>
+                  <div class="quick-info">
+                    <strong>Configurer le Carrousel</strong>
+                    <span>Choisir les spécialités de la maison</span>
+                  </div>
+                  <span class="quick-arrow">&rarr;</span>
+                </button>
+
+                <button class="quick-action-btn" data-goto="photos">
+                  <div class="quick-icon-wrap orange">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                  </div>
+                  <div class="quick-info">
+                    <strong>Téléverser des photos</strong>
+                    <span>Gestionnaire Cloudflare R2</span>
+                  </div>
+                  <span class="quick-arrow">&rarr;</span>
+                </button>
+
+                <button class="quick-action-btn" data-goto="settings">
+                  <div class="quick-icon-wrap brown">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                  </div>
+                  <div class="quick-info">
+                    <strong>Horaires & Téléphone</strong>
+                    <span>Informations visibles sur le menu</span>
+                  </div>
+                  <span class="quick-arrow">&rarr;</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Category Distribution Bar -->
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title-group">
+                  <h3>Répartition des Plats</h3>
+                  <p>Top catégories par nombre de plats</p>
+                </div>
+              </div>
+              <div class="category-bars-list" id="categoryBarsList"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           VUE 2 : GESTION DES PLATS & TARIFS
+           ================================================================== -->
+      <section class="admin-view" id="view-dishes">
+        <!-- Control Toolbar -->
+        <div class="panel toolbar-panel">
+          <div class="toolbar-search-wrap">
+            <svg viewBox="0 0 24 24" class="search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="search" id="dishSearchInput" placeholder="Rechercher par nom, ingrédient ou prix...">
+            <button class="clear-input-btn" id="clearDishSearch" hidden>✕</button>
+          </div>
+
+          <div class="toolbar-filters">
+            <div class="filter-group">
+              <label for="dishCatFilter">Catégorie :</label>
+              <select id="dishCatFilter">
+                <option value="all">Toutes les catégories</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="dishStatusFilter">Disponibilité :</label>
+              <select id="dishStatusFilter">
+                <option value="all">Tous les statuts</option>
+                <option value="available">Disponibles</option>
+                <option value="unavailable">Indisponibles</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="dishFeaturedFilter">Carrousel :</label>
+              <select id="dishFeaturedFilter">
+                <option value="all">Tous les plats</option>
+                <option value="featured">⭐ Sélectionnés</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="dishSortSelect">Trier par :</label>
+              <select id="dishSortSelect">
+                <option value="default">Ordre original</option>
+                <option value="name-asc">Nom (A-Z)</option>
+                <option value="price-asc">Prix (Croissant)</option>
+                <option value="price-desc">Prix (Décroissant)</option>
+              </select>
+            </div>
+
+            <button class="btn btn-primary" id="addDishBtn">
+              <svg viewBox="0 0 24 24" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Nouveau plat
+            </button>
+          </div>
+        </div>
+
+        <!-- Dishes Table Panel -->
+        <div class="panel table-panel">
+          <div class="table-responsive">
+            <table class="main-data-table">
+              <thead>
+                <tr>
+                  <th style="width: 320px;">PLAT & INGRÉDIENTS</th>
+                  <th style="width: 160px;">CATÉGORIE</th>
+                  <th>TARIFS & TAILLES (OPTIONS DE PRIX)</th>
+                  <th style="width: 130px; text-align: center;">DISPONIBILITÉ</th>
+                  <th style="width: 110px; text-align: center;">CARROUSEL</th>
+                  <th style="width: 140px; text-align: right;">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody id="dishesTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="empty-state" id="emptyDishesState" hidden>
+            <div class="empty-icon">🍽️</div>
+            <h3>Aucun plat ne correspond à vos filtres</h3>
+            <p>Essayez de modifier votre recherche ou réinitialisez les filtres.</p>
+            <button class="btn btn-secondary" id="resetDishFiltersBtn">Réinitialiser les filtres</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           VUE 3 : GESTION DES CATÉGORIES
+           ================================================================== -->
+      <section class="admin-view" id="view-categories">
+        <div class="section-top-actions">
+          <div>
+            <h2>Catégories du Restaurant</h2>
+            <p class="section-desc">Organisez les rubriques de votre menu. Modifiez l'ordre d'affichage, les noms et les visuels.</p>
+          </div>
+          <button class="btn btn-primary" id="addCategoryBtn">
+            <svg viewBox="0 0 24 24" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Ajouter une catégorie
+          </button>
+        </div>
+
+        <div class="category-cards-grid" id="categoryCardsGrid"></div>
+      </section>
+
+      <!-- ==================================================================
+           VUE 4 : NOS MEILLEURS PLATS (CARROUSEL)
+           ================================================================== -->
+      <section class="admin-view" id="view-featured">
+        <div class="featured-banner">
+          <div class="featured-banner-info">
+            <div class="featured-badge-tag">⭐ CARROUSEL D'ACCUEIL</div>
+            <h2>« Nos meilleurs plats »</h2>
+            <p>Sélectionnez les spécialités représentatives à afficher dans le carrousel moderne en haut du menu public. Les plats sélectionnés y apparaissent avec leur photo, leur nom et leurs options de prix.</p>
+          </div>
+          <div class="featured-counter-box">
+            <span class="featured-num" id="featuredCounter">0</span>
+            <span class="featured-label">Plats dans le carrousel</span>
+          </div>
+        </div>
+
+        <div class="panel toolbar-panel">
+          <div class="toolbar-search-wrap">
+            <svg viewBox="0 0 24 24" class="search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="search" id="featuredSearchInput" placeholder="Filtrer parmi tous les plats...">
+          </div>
+          <div class="filter-group">
+            <label for="featuredCatFilter">Catégorie :</label>
+            <select id="featuredCatFilter">
+              <option value="all">Toutes les catégories</option>
+            </select>
+          </div>
+          <a href="index.html#bestSection" target="_blank" class="btn btn-outline" style="margin-left: auto;">
+            👁️ Prévisualiser le carrousel
+          </a>
+        </div>
+
+        <div class="featured-selection-grid" id="featuredSelectionGrid"></div>
+      </section>
+
+      <!-- ==================================================================
+           VUE 5 : MÉDIATHÈQUE / GESTION DES PHOTOS (CLOUDFLARE R2)
+           ================================================================== -->
+      <section class="admin-view" id="view-photos">
+        <div class="section-top-actions">
+          <div>
+            <h2>Médiathèque & Photos des Plats</h2>
+            <p class="section-desc">Gérez la collection de photographies de vos plats. Compatible avec Cloudflare R2 pour le stockage haute performance.</p>
+          </div>
+          <div class="photo-stats-pills">
+            <span class="pill-badge" id="photoCountBadge">0 photos cataloguées</span>
+          </div>
+        </div>
+
+        <!-- Photo Upload Dropzone -->
+        <div class="panel upload-panel">
+          <div class="dropzone-box" id="globalDropzone">
+            <div class="dropzone-icon">
+              <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            </div>
+            <h3>Glissez-déposez une photo de plat ici</h3>
+            <p>Formats supportés : WEBP, JPG, PNG, AVIF (Max 5 Mo). La photo sera prête pour le téléversement Cloudflare R2.</p>
+            <label class="btn btn-secondary">
+              Parcourir mes fichiers...
+              <input type="file" id="globalPhotoInput" accept="image/*" hidden>
+            </label>
+          </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="panel toolbar-panel">
+          <div class="toolbar-search-wrap">
+            <svg viewBox="0 0 24 24" class="search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="search" id="photoSearchInput" placeholder="Rechercher par nom de plat...">
+          </div>
+          <div class="filter-group">
+            <label for="photoCatFilter">Catégorie :</label>
+            <select id="photoCatFilter">
+              <option value="all">Toutes les catégories</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Photos Grid -->
+        <div class="media-library-grid" id="mediaLibraryGrid"></div>
+      </section>
+
+      <!-- ==================================================================
+           VUE 6 : PARAMÈTRES DU RESTAURANT
+           ================================================================== -->
+      <section class="admin-view" id="view-settings">
+        <div class="section-top-actions">
+          <div>
+            <h2>Paramètres & Coordonnées</h2>
+            <p class="section-desc">Modifiez les informations publiques de la Pizzeria Kamal (Téléphone, Adresse, Wifi, Horaires).</p>
+          </div>
+        </div>
+
+        <form id="settingsForm" class="panel settings-panel">
+          <div class="settings-form-grid">
+            <div class="form-group">
+              <label for="setRestoName">Nom du restaurant</label>
+              <input type="text" id="setRestoName" value="La Pizzeria Kamal" required>
+            </div>
+
+            <div class="form-group">
+              <label for="setRestoTagline">Slogan (Arabe)</label>
+              <input type="text" id="setRestoTagline" value="ذوق مرة، ورجع ديما">
+            </div>
+
+            <div class="form-group full-width">
+              <label for="setRestoDesc">Description courte</label>
+              <textarea id="setRestoDesc" rows="2">Pizzas, calzones, pasticcio, tacos, sandwichs, salades, plats et jus.</textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="setRestoPhone">Téléphone de commande</label>
+              <input type="text" id="setRestoPhone" value="0664-031519">
+            </div>
+
+            <div class="form-group">
+              <label for="setRestoWhatsApp">Numéro WhatsApp</label>
+              <input type="text" id="setRestoWhatsApp" value="212664031519">
+            </div>
+
+            <div class="form-group">
+              <label for="setRestoAddress">Adresse physique</label>
+              <input type="text" id="setRestoAddress" value="6 Av. Mohammed V, Témara">
+            </div>
+
+            <div class="form-group">
+              <label for="setRestoWifi">Code Wi-Fi clients</label>
+              <input type="text" id="setRestoWifi" value="123456">
+            </div>
+
+            <div class="form-group">
+              <label for="setRestoHours">Horaires de service</label>
+              <input type="text" id="setRestoHours" value="Ouvert 7j/7 de 11h00 à 02h00">
+            </div>
+
+            <div class="form-group full-width">
+              <label for="setRestoInstagram">Lien Instagram</label>
+              <input type="url" id="setRestoInstagram" value="https://www.instagram.com/la_pizzeria_kamal/">
+            </div>
+
+            <div class="form-group full-width">
+              <label for="setRestoMaps">Lien Google Maps</label>
+              <input type="url" id="setRestoMaps" value="https://maps.app.goo.gl/uqh7U6Wp2MosHEdJ8?g_st=ac">
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button type="submit" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" width="16" height="16"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Enregistrer les modifications
+            </button>
+          </div>
+        </form>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ======================================================================
+     MODALE DE GESTION DE PLAT AVEC MULTI-PRIX STRUCTURÉ (CRITIQUE)
+     ====================================================================== -->
+<dialog id="dishModal" class="modal-dialog">
+  <div class="modal-shell">
+    <div class="modal-header">
+      <div class="modal-header-copy">
+        <span class="modal-eyebrow">CATALOGUE DU RESTAURANT</span>
+        <h2 id="dishModalTitle">Ajouter un nouveau plat</h2>
+      </div>
+      <button type="button" class="modal-close-icon" data-close-modal="dishModal" aria-label="Fermer">✕</button>
+    </div>
+
+    <form id="dishForm" class="modal-form">
+      <input type="hidden" id="dishEditOriginalCat">
+      <input type="hidden" id="dishEditOriginalIndex">
+
+      <div class="modal-form-body">
+        <div class="form-grid-2">
+          <!-- Nom du plat -->
+          <div class="form-group full-width">
+            <label for="modalDishName">Nom du plat <span class="required">*</span></label>
+            <input type="text" id="modalDishName" placeholder="Ex. Pizza Margherita, Tacos Poulet..." required maxlength="80">
+          </div>
+
+          <!-- Catégorie -->
+          <div class="form-group">
+            <label for="modalDishCat">Catégorie <span class="required">*</span></label>
+            <select id="modalDishCat" required></select>
+          </div>
+
+          <!-- Description -->
+          <div class="form-group full-width">
+            <label for="modalDishDesc">Ingrédients & Description</label>
+            <textarea id="modalDishDesc" rows="2" placeholder="Sauce tomate, fromage mozzarella, origan, olives noires..." maxlength="250"></textarea>
+          </div>
+        </div>
+
+        <!-- ==============================================================
+             GESTIONNAIRE MULTI-PRIX : SUPPORT DE PLUSIEURS TARIFS & TAILLES
+             ============================================================== -->
+        <div class="price-manager-section">
+          <div class="price-manager-header">
+            <div>
+              <label class="price-manager-title">Tarifs & Options de Prix <span class="required">*</span></label>
+              <p class="price-manager-sub">Définissez une taille/label (ex: Solo, Normal, XL, 1 pers.) et le montant correspondant.</p>
+            </div>
+            <button type="button" class="btn btn-sm btn-secondary" id="addPriceOptionBtn">
+              + Ajouter une option de prix
+            </button>
+          </div>
+
+          <!-- Quick Label Suggestions -->
+          <div class="price-chips-container">
+            <span class="chips-label">Suggestions rapides :</span>
+            <button type="button" class="price-chip" data-chip="1 pers.">1 pers.</button>
+            <button type="button" class="price-chip" data-chip="2 pers.">2 pers.</button>
+            <button type="button" class="price-chip" data-chip="Small">Small</button>
+            <button type="button" class="price-chip" data-chip="Medium">Medium</button>
+            <button type="button" class="price-chip" data-chip="Large">Large</button>
+            <button type="button" class="price-chip" data-chip="XL">XL</button>
+            <button type="button" class="price-chip" data-chip="Solo">Solo</button>
+            <button type="button" class="price-chip" data-chip="Menu">Menu</button>
+            <button type="button" class="price-chip" data-chip="Lait">Lait</button>
+            <button type="button" class="price-chip" data-chip="Orange">Orange</button>
+          </div>
+
+          <!-- Dynamic Price Rows Container -->
+          <div class="price-rows-container" id="priceRowsContainer">
+            <!-- Dynamic rows will be rendered by JS -->
+          </div>
+          <div class="price-error-msg" id="priceErrorMsg" hidden>Veuillez renseigner au moins un prix valide avec un montant positif.</div>
+        </div>
+
+        <!-- Photo & Aperçu -->
+        <div class="photo-upload-group">
+          <div class="photo-preview-box">
+            <img id="dishPreviewImg" src="img/logo.webp" alt="Aperçu du plat">
+          </div>
+          <div class="photo-inputs">
+            <div class="form-group">
+              <label for="modalDishImgPath">Chemin de l'image (statique ou URL R2)</label>
+              <input type="text" id="modalDishImgPath" placeholder="img/pizzas/margherita.webp">
+            </div>
+            <div class="photo-file-picker">
+              <label class="file-label">
+                <span class="file-btn-text">📁 Téléverser une nouvelle photo</span>
+                <input type="file" id="modalDishFileInput" accept="image/*">
+              </label>
+              <small class="file-hint">Stockage R2 optimisé WebP / JPEG (Max 5 Mo).</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toggles: Disponibilité & Carrousel -->
+        <div class="toggles-row">
+          <label class="toggle-card">
+            <input type="checkbox" id="modalDishAvailable" checked>
+            <div class="toggle-copy">
+              <strong>Disponible à la commande</strong>
+              <span>Visible par les clients sur le menu</span>
+            </div>
+          </label>
+
+          <label class="toggle-card">
+            <input type="checkbox" id="modalDishBest">
+            <div class="toggle-copy">
+              <strong>⭐ Afficher dans « Nos meilleurs plats »</strong>
+              <span>Mis en vedette dans le carrousel d'accueil</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close-modal="dishModal">Annuler</button>
+        <button type="submit" class="btn btn-primary" id="saveDishSubmitBtn">Enregistrer le plat</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- ======================================================================
+     MODALE DE GESTION DE CATÉGORIE
+     ====================================================================== -->
+<dialog id="categoryModal" class="modal-dialog">
+  <div class="modal-shell">
+    <div class="modal-header">
+      <div class="modal-header-copy">
+        <span class="modal-eyebrow">ORGANISATION DU MENU</span>
+        <h2 id="categoryModalTitle">Ajouter une catégorie</h2>
+      </div>
+      <button type="button" class="modal-close-icon" data-close-modal="categoryModal" aria-label="Fermer">✕</button>
+    </div>
+
+    <form id="categoryForm" class="modal-form">
+      <input type="hidden" id="modalCatOriginalId">
+
+      <div class="modal-form-body">
+        <div class="form-grid-2">
+          <div class="form-group full-width">
+            <label for="modalCatName">Nom de la catégorie <span class="required">*</span></label>
+            <input type="text" id="modalCatName" required placeholder="Ex. Pizzas, Calzones, Jus Frais...">
+          </div>
+
+          <div class="form-group">
+            <label for="modalCatIcon">Icône / Emoji</label>
+            <input type="text" id="modalCatIcon" value="🍽️" maxlength="8">
+          </div>
+
+          <div class="form-group">
+            <label for="modalCatGroup">Groupe de menu <span class="required">*</span></label>
+            <select id="modalCatGroup" required>
+              <option value="repas">🍽️ Repas</option>
+              <option value="boissons">🥤 Boissons & Jus</option>
+              <option value="desserts">🍰 Desserts</option>
+            </select>
+          </div>
+
+          <div class="form-group full-width">
+            <label for="modalCatImage">Image de couverture (Chemin ou URL)</label>
+            <input type="text" id="modalCatImage" placeholder="img/pizzas.webp">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close-modal="categoryModal">Annuler</button>
+        <button type="submit" class="btn btn-primary">Enregistrer la catégorie</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- ======================================================================
+     MODALE DE CONFIRMATION DE SUPPRESSION DE CATÉGORIE SÉCURISÉE
+     ====================================================================== -->
+<dialog id="deleteCatModal" class="modal-dialog">
+  <div class="modal-shell">
+    <div class="modal-header delete-header">
+      <div class="delete-icon-box">⚠️</div>
+      <div class="modal-header-copy">
+        <span class="modal-eyebrow">ATTENTION · ACTION DESTRUCTIVE</span>
+        <h2 id="deleteCatModalTitle">Supprimer cette catégorie ?</h2>
+      </div>
+      <button type="button" class="modal-close-icon" data-close-modal="deleteCatModal" aria-label="Fermer">✕</button>
+    </div>
+    <div class="modal-form-body">
+      <p id="deleteCatWarningText">Cette catégorie contient des plats. Si vous confirmez, tous les plats associés seront supprimés du menu.</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-close-modal="deleteCatModal">Annuler</button>
+      <button type="button" class="btn btn-danger" id="confirmDeleteCatBtn">Supprimer définitivement</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Toast Notification Container -->
+<div class="toast-hub" id="toastHub" role="status" aria-live="polite"></div>
+
+<!-- Scripts -->
+<script src="menu-data.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

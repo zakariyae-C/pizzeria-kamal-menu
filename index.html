@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <meta name="theme-color" content="#120e0c">
+  <meta name="description"
+    content="Kebab Kamal - Boucherie et Grillade à Témara. Menu digital : Tacos, Chawarma, Burgers, Plats grillés, Paninis, Bocadillos et Jus frais.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>La Pizzeria Kamal – Menu Digital</title>
+  <link rel="icon" type="image/webp" href="img/logo.webp">
+
+  <!-- Google Fonts: Plus Jakarta Sans & Cairo -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="app-wrapper">
+
+    <!-- ======================================================================
+       VUE 1 : ACCUEIL / LISTE DES CATÉGORIES
+       ====================================================================== -->
+    <div id="homeView">
+
+      <!-- Hero & Brand Header -->
+      <header class="hero-header">
+        <div class="hero-bg">
+          <div class="hero-glow"></div>
+        </div>
+
+        <!-- Top Utility Bar -->
+        <div class="top-nav">
+          <div class="status-badge">
+            <span class="status-dot"></span>
+            <span id="topNavHours">Ouvert 7j/7 · 11h00 – 02h00</span>
+          </div>
+          <div class="top-actions">
+            <button id="themeToggle" class="icon-btn" aria-label="Changer de thème" title="Thème sombre / clair">
+              <svg class="sun-icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="5" />
+                <path
+                  d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+              </svg>
+              <svg class="moon-icon" viewBox="0 0 24 24">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            </button>
+            <button id="infoBtn" class="icon-btn" aria-label="Infos & Horaires" title="Infos & Horaires">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Brand Card -->
+
+
+        <div class="brand-card">
+          <div class="brand-logo-wrap">
+            <img id="brandLogo" src="img/logo.webp" alt="Logo" class="brand-logo">
+          </div>
+          <div class="brand-details">
+            <div class="brand-title-row">
+              <h1 id="brandName"></h1>
+              <span class="rating-badge">
+                <svg viewBox="0 0 24 24" class="star-icon">
+                  <polygon
+                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+                4.8 <span class="rating-count">(350+ avis)</span>
+              </span>
+            </div>
+            <p class="arabic-tagline" id="brandTagline" hidden></p>
+            <p class="brand-desc" id="brandDesc"></p>
+
+            <!-- Badges -->
+            <div class="feature-pills">
+              <span class="feat-pill" id="brandAddressPill">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <span id="brandAddress"></span>
+              </span>
+              <span class="feat-pill" id="brandWifiPill">
+                <svg viewBox="0 0 24 24">
+                  <path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0" />
+                  <line x1="12" y1="20" x2="12.01" y2="20" />
+                </svg>
+                <span id="brandWifi"></span>
+              </span>
+            </div>
+            <!-- Display Info List -->
+            <div class="quick-contact-bar" id="infoList"></div>
+          </div>
+        </div>
+
+      </header>
+
+      <!-- Sticky Filter & Search Bar -->
+      <div class="sticky-nav-bar">
+        <!-- Search Input -->
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" class="search-icon">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input id="searchInput" type="search" placeholder="Rechercher un plat (tacos, burger, kefta...)"
+            autocomplete="off">
+          <button id="clearSearchBtn" class="clear-search-btn" aria-label="Effacer" hidden>✕</button>
+        </div>
+
+        <!-- Meal Groups Filter (Tout / Repas / Boissons) -->
+        <div class="groups-pills" id="groupChips">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Main Categories Grid -->
+      <main class="main-content">
+
+        <!-- Carousel "Nos meilleurs plats" -->
+        <section class="best-section" id="bestSection" hidden>
+          <div class="best-section-header">
+            <div class="best-header-info">
+              <span class="best-section-badge">
+                <svg viewBox="0 0 24 24" class="best-star-icon">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                </svg>
+                Notre Sélection
+              </span>
+              <h2 class="section-title">⭐ Nos Meilleurs Plats</h2>
+              <p class="best-subtitle">Les spécialités préférées et incontournables de la maison</p>
+            </div>
+            <div class="carousel-nav-controls" id="bestCarouselControls">
+              <button class="carousel-nav-btn prev" id="bestPrevBtn" aria-label="Plat précédent" title="Précédent">
+                <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+              <button class="carousel-nav-btn next" id="bestNextBtn" aria-label="Plat suivant" title="Suivant">
+                <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+            </div>
+          </div>
+          <div class="best-carousel-container">
+            <div class="best-carousel-track" id="bestCarouselTrack" role="region" aria-label="Carrousel des meilleurs plats">
+              <!-- Rendered dynamically by JS -->
+            </div>
+          </div>
+          <div class="carousel-dots-container" id="bestCarouselDots"></div>
+        </section>
+
+        <!-- Section header -->
+        <div class="section-meta-header" id="homeSectionHeader">
+          <h2 class="section-title">Choisissez une Catégorie</h2>
+          <span class="section-count" id="categoriesCount">13 catégories</span>
+        </div>
+
+        <!-- Cards Grid of Categories -->
+        <div class="categories-cards-grid" id="categoriesGrid">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Search Results Container (Active when searching) -->
+        <div class="search-results-section" id="searchResultsSection" hidden>
+          <div class="search-results-header" id="searchResultsHeader"></div>
+          <div class="items-list" id="searchResultsList"></div>
+        </div>
+
+      </main>
+
+    </div>
+
+
+    <!-- ======================================================================
+       VUE 2 : DÉTAIL D'UNE CATÉGORIE (AFFICHAGE DES PLATS & PRIX)
+       ====================================================================== -->
+    <div id="detailView" hidden>
+
+      <!-- Top Sticky Bar with Back Button -->
+      <header class="detail-top-bar">
+        <a href="#home" class="detail-back-btn" id="backToHomeBtn" aria-label="Retour au menu">
+          <svg viewBox="0 0 24 24">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+          <span>Retour</span>
+        </a>
+        <h2 class="detail-bar-title" id="detailBarTitle">Catégorie</h2>
+        <button id="detailInfoBtn" class="icon-btn detail-info-btn" aria-label="Infos restaurant" title="Infos">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+        </button>
+      </header>
+
+      <!-- Quick Carousel to switch to other categories without going back -->
+      <div class="sub-category-bar-wrap">
+        <nav class="sub-category-bar" id="subCategoryTabs">
+          <!-- Rendered by JS -->
+        </nav>
+      </div>
+
+      <!-- Category Hero Banner with High-Res Image -->
+      <div class="detail-hero-banner" id="detailHeroBanner">
+        <div class="detail-hero-content">
+          <!-- <span class="detail-hero-badge" id="detailHeroBadge">Spécialité</span> -->
+          <h1 class="detail-hero-title" id="detailHeroTitle">Tacos Français</h1>
+          <p class="detail-hero-count" id="detailHeroCount">11 plats disponibles</p>
+        </div>
+      </div>
+
+      <!-- Category Dishes List (Displaying Dishes, Descriptions & Prices Only) -->
+      <main class="detail-content">
+        <div class="detail-items-container" id="detailItemsList">
+          <!-- Dishes rendered by JS -->
+        </div>
+      </main>
+
+    </div>
+
+
+    <!-- ======================================================================
+       FOOTER UNIFIÉ
+       ====================================================================== -->
+    <footer class="app-footer">
+      <div class="footer-card">
+        <img src="img/logo.svg" alt="Logo Kebab Kamal" class="footer-logo" onerror="this.src='img/logo.webp'">
+        <h3 id="footerRestoName">Pizzeria Kamal</h3>
+        <p class="footer-tagline" id="footerRestoTagline">ذوق مرة، ورجع ديما</p>
+        <div class="footer-meta">
+          <p id="footerRestoAddress">📍 6 Av. Mohammed V, Témara</p>
+          <p id="footerRestoContact">📞 0664-031519 · WhatsApp : 0664-031519</p>
+          <p id="footerRestoHours">🕒 Ouvert 7j/7 de 11h00 à 02h00</p>
+        </div>
+        <div class="footer-copy">
+          © <span id="currentYear"></span> <span id="footerCopyName">Pizzeria Kamal</span>. Menu digital sur place.
+        </div>
+      </div>
+    </footer>
+
+
+    <!-- ======================================================================
+       MODAL 1 : INFOS & HORAIRES DU RESTAURANT
+       ====================================================================== -->
+    <div class="modal-overlay" id="infoModal" hidden>
+      <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-icon">ℹ️</span>
+            <h2 id="infoModalTitle">Infos & Horaires</h2>
+          </div>
+          <button class="modal-close-btn" id="closeInfoBtn" aria-label="Fermer">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="info-list-card">
+
+            <div class="info-row">
+              <div class="info-icon-box"><svg viewBox="0 0 24 24">
+                  <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg></div>
+              <div class="info-meta">
+                <strong>Adresse</strong>
+                <p id="modalInfoAddress">6 Avenue Mohammed V, Témara</p>
+                <a id="modalInfoMapsLink" href="https://maps.app.goo.gl/uqh7U6Wp2MosHEdJ8?g_st=ac" target="_blank" rel="noopener"
+                  class="text-link">Ouvrir dans Google Maps →</a>
+              </div>
+            </div>
+
+            <div class="info-row">
+              <div class="info-icon-box"><svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg></div>
+              <div class="info-meta">
+                <strong>Horaires de service</strong>
+                <p id="modalInfoHours">Lundi au Dimanche : <strong>11h00 – 02h00</strong></p>
+                <p class="sub-text">Service continu midi & soir sans interruption</p>
+              </div>
+            </div>
+
+            <div class="info-row">
+              <div class="info-icon-box"><svg viewBox="0 0 24 24">
+                  <path
+                    d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                </svg></div>
+              <div class="info-meta">
+                <strong>Téléphone</strong>
+                <p><a id="modalInfoPhoneLink" href="tel:0664031519" class="phone-link"><span id="modalInfoPhone">0664-031519</span></a></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ======================================================================
+       MODAL 2 : LIGHTBOX (AGRANDISSEMENT PHOTO EN PLEIN ÉCRAN)
+       ====================================================================== -->
+    <div class="modal-overlay lightbox-overlay" id="lightboxModal" hidden>
+      <div class="lightbox-content">
+        <button class="lightbox-close-btn" id="closeLightboxBtn" aria-label="Fermer">✕</button>
+        <div class="lightbox-img-wrap">
+          <img id="lightboxImg" src="" alt="Photo du plat">
+        </div>
+        <div class="lightbox-caption">
+          <h3 id="lightboxTitle"></h3>
+          <p id="lightboxDesc"></p>
+          <span id="lightboxPrice" class="lightbox-price-tag"></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="menu-data.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>

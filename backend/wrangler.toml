@@ -1,0 +1,40 @@
+# ==============================================================================
+# CLOUDFLARE WORKER & PAGES CONFIGURATION
+# Project: Pizzeria Kamal - Digital Menu & Admin SaaS
+# ==============================================================================
+
+name = "pizzeria-kamal-api"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+# 1. Cloudflare D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "kamal-menu-db"
+database_id = "your-d1-database-id-here"
+
+# 2. Cloudflare R2 Bucket Binding (High-Performance Photo Storage)
+[[r2_buckets]]
+binding = "IMAGES_BUCKET"
+bucket_name = "kamal-menu-images"
+
+# 3. Environment Variables & Cloudflare Access Configuration
+[vars]
+# Your Cloudflare Zero Trust team name (e.g., https://pizzeria-kamal.cloudflareaccess.com)
+CF_ACCESS_TEAM_NAME = "pizzeria-kamal"
+
+# Application Audience (AUD) Tag from Cloudflare Access Dashboard
+POLICY_AUD = "your-cloudflare-access-aud-tag-here"
+
+# Comma-separated list of authorized administrator emails
+ALLOWED_ADMIN_EMAILS = "admin@pizzeriakamal.com,manager@pizzeriakamal.com"
+
+# Exact origin serving the frontend. Replace before deployment.
+ALLOWED_ORIGIN = "https://YOUR-PAGES-DOMAIN.pages.dev"
+
+# Optional: Public domain mapped to R2 bucket for serving images
+# R2_PUBLIC_DOMAIN = "https://images.pizzeriakamal.com"
+
+# 4. Observability & Logging
+[observability]
+enabled = true
