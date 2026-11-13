@@ -15,7 +15,103 @@
   <link rel="stylesheet" href="admin.css">
 </head>
 <body>
-<div class="admin-app">
+
+<!-- ======================================================================
+     ÉCRAN D'AUTHENTIFICATION ADMINISTRATEUR SÉCURISÉ
+     ====================================================================== -->
+<div class="auth-screen-container" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <img src="img/logo.webp" alt="Logo Pizzeria Kamal" class="auth-logo">
+      <h1 class="auth-title">Pizzeria Kamal</h1>
+      <p class="auth-subtitle">Espace d'Administration Sécurisé</p>
+    </div>
+
+    <!-- Mode 1 : Connexion standard -->
+    <form id="loginForm" class="auth-form">
+      <div class="auth-alert error" id="loginErrorMsg" hidden></div>
+      <div class="auth-alert info" id="loginInfoMsg" hidden></div>
+
+      <div class="form-group">
+        <label for="loginEmail">Adresse e-mail</label>
+        <div class="auth-input-wrap">
+          <svg viewBox="0 0 24 24" class="auth-field-icon"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          <input type="email" id="loginEmail" placeholder="admin@pizzeriakamal.com" required autocomplete="username">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="loginPassword">Mot de passe</label>
+        <div class="auth-input-wrap">
+          <svg viewBox="0 0 24 24" class="auth-field-icon"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <input type="password" id="loginPassword" placeholder="••••••••••••" required autocomplete="current-password">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block" id="loginSubmitBtn">
+        <span>Se connecter au tableau de bord</span>
+      </button>
+
+      <div class="auth-footer-links">
+        <a href="index.html" class="auth-back-link">← Retour au menu public</a>
+        <div style="margin-top: 10px;">
+          <button type="button" class="auth-switch-link" id="switchToSetupBtn">Première installation ? Créer le compte</button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Mode 2 : Configuration initiale du premier administrateur -->
+    <form id="setupForm" class="auth-form" hidden>
+      <div class="setup-badge">⚡ Configuration Initiale</div>
+      <p class="setup-desc">Aucun administrateur n'est encore configuré. Créez votre compte principal dès maintenant.</p>
+
+      <div class="auth-alert error" id="setupErrorMsg" hidden></div>
+      <div class="auth-alert success" id="setupSuccessMsg" hidden></div>
+
+      <div class="form-group">
+        <label for="setupEmail">Adresse e-mail administrateur</label>
+        <div class="auth-input-wrap">
+          <svg viewBox="0 0 24 24" class="auth-field-icon"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          <input type="email" id="setupEmail" placeholder="admin@pizzeriakamal.com" required autocomplete="username">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="setupPassword">Nouveau mot de passe (min. 8 caractères)</label>
+        <div class="auth-input-wrap">
+          <svg viewBox="0 0 24 24" class="auth-field-icon"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <input type="password" id="setupPassword" placeholder="Minimum 8 caractères" required minlength="8" autocomplete="new-password">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="setupPasswordConfirm">Confirmer le mot de passe</label>
+        <div class="auth-input-wrap">
+          <svg viewBox="0 0 24 24" class="auth-field-icon"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <input type="password" id="setupPasswordConfirm" placeholder="Retapez le mot de passe" required minlength="8" autocomplete="new-password">
+        </div>
+      </div>
+
+      <div class="form-group" id="setupSecretGroup">
+        <label for="setupSecret">Clé d'installation (SETUP_SECRET - optionnelle)</label>
+        <div class="auth-input-wrap">
+          <svg viewBox="0 0 24 24" class="auth-field-icon"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <input type="password" id="setupSecret" placeholder="Laissez vide si premier administrateur" autocomplete="off">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block" id="setupSubmitBtn">
+        <span>Créer le compte et accéder au tableau de bord</span>
+      </button>
+
+      <div class="auth-footer-links">
+        <button type="button" class="auth-switch-link" id="switchToLoginBtn">Déjà un compte ? Se connecter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="admin-app" id="adminApp" style="display: none;">
 
   <!-- Mobile Header Overlay -->
   <div class="mobile-topbar">
@@ -114,7 +210,7 @@
         <div class="admin-info">
           <span class="admin-name" id="adminEmail">admin@pizzeriakamal.com</span>
           <span class="admin-role" id="adminRole">
-            <span class="auth-dot"></span> Cloudflare Access
+            <span class="auth-dot"></span> Administrateur
           </span>
         </div>
         <button class="logout-btn" id="logoutBtn" title="Se déconnecter" aria-label="Déconnexion">
@@ -304,8 +400,8 @@
                     <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                   </div>
                   <div class="quick-info">
-                    <strong>Téléverser des photos</strong>
-                    <span>Gestionnaire Cloudflare R2</span>
+                    <strong>Médiathèque des photos</strong>
+                    <span>Explorer les images et chemins statiques</span>
                   </div>
                   <span class="quick-arrow">&rarr;</span>
                 </button>
@@ -472,31 +568,16 @@
       </section>
 
       <!-- ==================================================================
-           VUE 5 : MÉDIATHÈQUE / GESTION DES PHOTOS (CLOUDFLARE R2)
+           VUE 5 : MÉDIATHÈQUE / PHOTOS DES PLATS & CATÉGORIES
            ================================================================== -->
       <section class="admin-view" id="view-photos">
         <div class="section-top-actions">
           <div>
-            <h2>Médiathèque & Photos des Plats</h2>
-            <p class="section-desc">Gérez la collection de photographies de vos plats. Compatible avec Cloudflare R2 pour le stockage haute performance.</p>
+            <h2>Médiathèque & Photothèque Statique</h2>
+            <p class="section-desc">Consultez l'ensemble des photographies statiques de vos plats et rubriques. Cliquez sur une image pour copier son chemin.</p>
           </div>
           <div class="photo-stats-pills">
             <span class="pill-badge" id="photoCountBadge">0 photos cataloguées</span>
-          </div>
-        </div>
-
-        <!-- Photo Upload Dropzone -->
-        <div class="panel upload-panel">
-          <div class="dropzone-box" id="globalDropzone">
-            <div class="dropzone-icon">
-              <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            </div>
-            <h3>Glissez-déposez une photo de plat ici</h3>
-            <p>Formats supportés : WEBP, JPG, PNG, AVIF (Max 5 Mo). La photo sera prête pour le téléversement Cloudflare R2.</p>
-            <label class="btn btn-secondary">
-              Parcourir mes fichiers...
-              <input type="file" id="globalPhotoInput" accept="image/*" hidden>
-            </label>
           </div>
         </div>
 
@@ -672,20 +753,19 @@
         <!-- Photo & Aperçu -->
         <div class="photo-upload-group">
           <div class="photo-preview-box">
-            <img id="dishPreviewImg" src="img/logo.webp" alt="Aperçu du plat">
+            <img id="dishPreviewImg" src="img/logo.webp" alt="Aperçu du plat" onerror="this.src='img/logo.webp'">
           </div>
           <div class="photo-inputs">
             <div class="form-group">
-              <label for="modalDishImgPath">Chemin de l'image (statique ou URL R2)</label>
-              <input type="text" id="modalDishImgPath" placeholder="img/pizzas/margherita.webp">
+              <label for="modalDishImgPath">Chemin de l'image (statique)</label>
+              <div class="input-with-button-group">
+                <input type="text" id="modalDishImgPath" placeholder="img/pizzas/margherita.webp">
+                <button type="button" class="btn btn-secondary btn-sm" id="useCatDefaultImgBtn" title="Réassigner l'image par défaut de la catégorie choisie">
+                  🔄 Image de la catégorie
+                </button>
+              </div>
             </div>
-            <div class="photo-file-picker">
-              <label class="file-label">
-                <span class="file-btn-text">📁 Téléverser une nouvelle photo</span>
-                <input type="file" id="modalDishFileInput" accept="image/*">
-              </label>
-              <small class="file-hint">Stockage R2 optimisé WebP / JPEG (Max 5 Mo).</small>
-            </div>
+            <small class="file-hint">L'image de la catégorie est automatiquement assignée. Vous pouvez aussi spécifier un chemin statique existant.</small>
           </div>
         </div>
 

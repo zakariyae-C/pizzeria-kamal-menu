@@ -1,11 +1,14 @@
 /**
  * PIZZERIA KAMAL - COMMERCIAL SAAS ADMIN DASHBOARD ENGINE
- * Handles:
+ * 
+ * Capabilities:
+ * - Secure Session-based Authentication & Setup Bootstrap
  * - Structured multi-price per dish (Solo, Normal, XL, Small, Medium, Large, etc.)
+ * - Automatic category-based dish image assignment (zero file upload, 0 R2 dependencies)
+ * - Static photo library with one-click path copying
  * - Categories management with safe deletion & reordering
  * - Best Sellers ("Nos meilleurs plats") carousel integration
- * - Media library & Cloudflare R2 upload preparation
- * - Cloudflare D1 / Worker hybrid synchronization with localStorage fallback
+ * - Cloudflare D1 synchronization with same-origin cookies and CSRF protection
  * - Restaurant public settings management
  */
 
@@ -39,104 +42,6 @@
   const fmt = (v) =>
     typeof v === "number" ? v.toFixed(2).replace(".", ",") + " DH" : v;
 
-  const formatBytes = (bytes) => {
-    if (!bytes || bytes < 0) return '0 o';
-    if (bytes < 1024) return bytes + ' o';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' Ko';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
-  };
-
-  /**
-   * Compresse n'importe quelle image (JPG, PNG, JFIF, etc.) et la convertit en WebP.
-   * Force l'extension .webp, redimensionne si > maxDimension et applique la compression qualité.
-   */
-  function compressAndConvertToWebp(file, maxDimension = 1100, quality = 0.82) {
-    return new Promise((resolve, reject) => {
-      if (!file) {
-        reject(new Error("Aucun fichier fourni."));
-        return;
-      }
-
-      // 1. Dériver un nom propre avec extension obligatoire .webp
-      const originalName = file.name || "image.jpg";
-      const cleanBase = originalName
-        .replace(/\.[^/.]+$/, "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9_-]/g, "-")
-        .replace(/-+/g, "-")
-        .replace(/^-|-$/g, "");
-
-      const webpFileName = `${cleanBase || "plat"}.webp`;
-
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error("Erreur de lecture du fichier image."));
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onerror = () => reject(new Error("Format d'image non valide ou fichier corrompu."));
-        img.onload = () => {
-          let width = img.naturalWidth || img.width;
-          let height = img.naturalHeight || img.height;
-
-          // Redimensionnement proportionnel si supérieur à maxDimension
-          if (width > maxDimension || height > maxDimension) {
-            if (width > height) {
-              height = Math.round((height * maxDimension) / width);
-              width = maxDimension;
-            } else {
-              width = Math.round((width * maxDimension) / height);
-              height = maxDimension;
-            }
-          }
-
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = "high";
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Génération du DataURL WebP (idéal pour aperçu et stockage local léger)
-          const webpDataUrl = canvas.toDataURL("image/webp", quality);
-
-          // Génération du Blob WebP pour téléversement R2
-          canvas.toBlob(
-            (blob) => {
-              const compressedSize = blob ? blob.size : Math.round(webpDataUrl.length * 0.75);
-              const savings = Math.max(0, Math.round(((file.size - compressedSize) / file.size) * 100));
-
-              let webpFile = null;
-              if (blob) {
-                try {
-                  webpFile = new File([blob], webpFileName, { type: "image/webp" });
-                } catch (_) {}
-              }
-
-              resolve({
-                webpFile,
-                blob,
-                webpDataUrl,
-                webpFileName,
-                originalSize: file.size,
-                compressedSize,
-                savings,
-                width,
-                height,
-              });
-            },
-            "image/webp",
-            quality
-          );
-        };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
   // Flatten all dishes with category context
   const getAllDishes = () =>
     menu.flatMap((cat) =>
@@ -149,14 +54,26 @@
       }))
     );
 
+  /**
+   * Helper to retrieve the default image of a category.
+   * If not set or missing, safely falls back to 'img/logo.webp'.
+   */
+  function getCategoryDefaultImage(catId) {
+    const cat = menu.find((c) => c.id === catId);
+    return (cat && cat.img) ? cat.img : 'img/logo.webp';
+  }
+
   // --------------------------------------------------------------------------
   // 1. DATA INITIALIZATION & SYNC
   // --------------------------------------------------------------------------
   async function loadInitialMenu() {
-    // In production, D1 is the source of truth. Local storage is only a fallback
-    // for offline preview or when the API has not been configured yet.
     try {
-      const response = await fetch('/api/menu', { method: 'GET', cache: 'no-store' });
+      const response = await fetch('/api/menu', {
+        method: 'GET',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+        cache: 'no-store'
+      });
       if (response.ok) {
         const cloudMenu = await response.json();
         if (Array.isArray(cloudMenu) && cloudMenu.length > 0) {
@@ -190,10 +107,10 @@
       if (cloudSynced) {
         showToast(`${message} · synchronisé avec le serveur`, 'success');
       } else {
-        showToast('Modifications enregistrées sur cet appareil uniquement. Synchronisation Cloudflare indisponible.', 'warning');
+        showToast('Modifications enregistrées localement.', 'info');
       }
     } catch (err) {
-      showToast('Erreur lors de la sauvegarde locale: ' + err.message, 'warning');
+      showToast('Erreur lors de la sauvegarde: ' + err.message, 'warning');
     }
   }
 
@@ -203,23 +120,27 @@
     const adminEmail = $('adminEmail');
 
     try {
-      const res = await fetch('/api/auth/me', { method: 'GET', cache: 'no-cache' });
+      const res = await fetch('/api/auth/me', {
+        method: 'GET',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+        cache: 'no-cache'
+      });
       if (res.ok) {
         const authData = await res.json();
-        pill.classList.remove('offline');
-        text.textContent = 'Cloudflare D1 Connecté';
-        if (authData.email) {
+        pill?.classList.remove('offline');
+        if (text) text.textContent = 'Cloudflare D1 Connecté';
+        if (authData.email && adminEmail) {
           adminEmail.textContent = authData.email;
+          const avatar = $('adminAvatar');
+          if (avatar) avatar.textContent = authData.email.substring(0, 2).toUpperCase();
         }
         return true;
       }
-    } catch (_) {
-      // Local development or offline mode
-    }
+    } catch (_) {}
 
-    pill.classList.add('offline');
-    text.textContent = 'Mode Local (localStorage)';
-    adminEmail.textContent = 'Mode hors ligne · non authentifié';
+    pill?.classList.add('offline');
+    if (text) text.textContent = 'Mode Local (D1 non joint)';
     return false;
   }
 
@@ -227,10 +148,18 @@
     try {
       const response = await fetch('/api/menu/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
         body: JSON.stringify({ menu }),
         cache: 'no-store'
       });
+      if (response.status === 401) {
+        handleUnauthorized();
+        return false;
+      }
       if (!response.ok) return false;
       const result = await response.json();
       return result.success === true;
@@ -248,211 +177,370 @@
 
     const toast = document.createElement('div');
     toast.className = `toast-item ${type}`;
-    const icon = type === 'success' ? '✓' : type === 'warning' ? '⚠️' : 'ℹ️';
-    toast.innerHTML = `<span>${icon}</span><span>${esc(message)}</span>`;
-    hub.appendChild(toast);
 
-    requestAnimationFrame(() => toast.classList.add('show'));
+    let icon = 'ℹ️';
+    if (type === 'success') icon = '✓';
+    if (type === 'warning') icon = '⚠️';
+    if (type === 'error') icon = '✕';
 
-    setTimeout(() => {
-      toast.classList.remove('show');
-      setTimeout(() => toast.remove(), 300);
-    }, 2800);
-  }
-
-  // --------------------------------------------------------------------------
-  // 3. MULTI-PRICE OPTIONS MANAGER (CRITIQUE)
-  // --------------------------------------------------------------------------
-  function createPriceRow(label = '', amount = '') {
-    const row = document.createElement('div');
-    row.className = 'price-row-item';
-    row.innerHTML = `
-      <input type="text" class="price-row-label-input" placeholder="Taille / Label (ex: Solo, Normal, XL, 1 pers...)" value="${esc(label)}" maxlength="30">
-      <div class="price-row-amount-wrap">
-        <input type="number" class="price-row-amount-input" placeholder="0.00" value="${amount !== '' ? amount : ''}" min="0" step="0.5" required>
-        <span class="price-row-currency">DH</span>
-      </div>
-      <button type="button" class="delete-price-row-btn" title="Supprimer cette option de prix" aria-label="Supprimer option de prix">
-        <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-      </button>
+    toast.innerHTML = `
+      <span class="toast-icon">${icon}</span>
+      <span class="toast-message">${esc(message)}</span>
+      <button class="toast-close-btn" aria-label="Fermer">✕</button>
     `;
 
-    const delBtn = row.querySelector('.delete-price-row-btn');
-    delBtn.onclick = () => {
-      const container = $('priceRowsContainer');
-      if (container.children.length > 1) {
-        row.remove();
-        updateDeletePriceButtonsState();
-      } else {
-        showToast('Un plat doit comporter au moins un prix.', 'warning');
-      }
-    };
-
-    return row;
-  }
-
-  function updateDeletePriceButtonsState() {
-    const container = $('priceRowsContainer');
-    const buttons = container.querySelectorAll('.delete-price-row-btn');
-    const isSingle = buttons.length <= 1;
-    buttons.forEach((btn) => {
-      btn.disabled = isSingle;
+    toast.querySelector('.toast-close-btn').addEventListener('click', () => {
+      toast.classList.add('fade-out');
+      setTimeout(() => toast.remove(), 250);
     });
+
+    hub.appendChild(toast);
+
+    setTimeout(() => {
+      if (toast.isConnected) {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 250);
+      }
+    }, 4500);
   }
 
-  function renderPriceRows(prices = []) {
-    const container = $('priceRowsContainer');
-    container.innerHTML = '';
+  // --------------------------------------------------------------------------
+  // 3. AUTHENTICATION & LOGIN WORKFLOW
+  // --------------------------------------------------------------------------
+  async function checkAuthAndInit() {
+    const authScreen = $('authScreen');
+    const adminApp = $('adminApp');
+    const loginForm = $('loginForm');
+    const setupForm = $('setupForm');
 
-    if (!prices || prices.length === 0) {
-      container.appendChild(createPriceRow('', ''));
-    } else {
-      prices.forEach((pr) => {
-        container.appendChild(createPriceRow(pr.label || '', pr.amount));
+    try {
+      const res = await fetch('/api/auth/status', {
+        method: 'GET',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+        cache: 'no-store'
       });
-    }
 
-    updateDeletePriceButtonsState();
-  }
+      if (res.ok) {
+        const data = await res.json();
+        if (data.setupRequired) {
+          // No admin configured: show bootstrap setup form
+          if (authScreen) authScreen.style.display = 'flex';
+          if (adminApp) adminApp.style.display = 'none';
+          if (loginForm) loginForm.hidden = true;
+          if (setupForm) setupForm.hidden = false;
+          return false;
+        }
 
-  function collectPricesFromForm() {
-    const container = $('priceRowsContainer');
-    const rows = container.querySelectorAll('.price-row-item');
-    const prices = [];
-    let hasError = false;
+        if (data.authenticated) {
+          // Valid authenticated session
+          if (authScreen) authScreen.style.display = 'none';
+          if (adminApp) adminApp.style.display = 'flex';
+          if (data.email) {
+            const emailEl = $('adminEmail');
+            if (emailEl) emailEl.textContent = data.email;
+            const avatar = $('adminAvatar');
+            if (avatar) avatar.textContent = data.email.substring(0, 2).toUpperCase();
+          }
+          return true;
+        }
 
-    rows.forEach((row) => {
-      const labelInput = row.querySelector('.price-row-label-input');
-      const amountInput = row.querySelector('.price-row-amount-input');
-      const label = (labelInput?.value || '').trim();
-      const amountVal = parseFloat(amountInput?.value);
-
-      if (isNaN(amountVal) || amountVal < 0) {
-        hasError = true;
-      } else {
-        prices.push({
-          label: label,
-          amount: amountVal,
-        });
+        // Unauthenticated: present login screen
+        if (authScreen) authScreen.style.display = 'flex';
+        if (adminApp) adminApp.style.display = 'none';
+        if (loginForm) loginForm.hidden = false;
+        if (setupForm) setupForm.hidden = true;
+        return false;
       }
-    });
-
-    const errorEl = $('priceErrorMsg');
-    if (hasError || prices.length === 0) {
-      if (errorEl) errorEl.hidden = false;
-      return null;
+    } catch (err) {
+      console.warn('API de statut non disponible:', err);
     }
 
-    if (errorEl) errorEl.hidden = true;
-    return prices;
+    // Default: show login screen if API is unreachable
+    if (authScreen) authScreen.style.display = 'flex';
+    if (adminApp) adminApp.style.display = 'none';
+    if (loginForm) loginForm.hidden = false;
+    if (setupForm) setupForm.hidden = true;
+    return false;
+  }
+
+  async function handleLoginFormSubmit(e) {
+    e.preventDefault();
+    const email = $('loginEmail')?.value.trim();
+    const password = $('loginPassword')?.value;
+    const errorMsg = $('loginErrorMsg');
+    const submitBtn = $('loginSubmitBtn');
+
+    if (errorMsg) errorMsg.hidden = true;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span>Connexion en cours...</span>';
+    }
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ email, password })
+      });
+
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (_) {
+        const raw = await res.text().catch(() => '');
+        data = { error: raw.trim() || `Erreur serveur HTTP ${res.status}` };
+      }
+
+      if (res.ok && data.success) {
+        $('authScreen').style.display = 'none';
+        $('adminApp').style.display = 'flex';
+        if ($('adminEmail')) $('adminEmail').textContent = data.email || email;
+        const avatar = $('adminAvatar');
+        if (avatar) avatar.textContent = (data.email || email).substring(0, 2).toUpperCase();
+
+        await loadInitialMenu();
+        await loadSettings();
+        populateCategoryFilters();
+        refreshAll();
+        await checkBackendConnection();
+        showView('overview');
+        showToast('Connexion réussie. Bienvenue sur le tableau de bord.', 'success');
+        return;
+      }
+
+      if (errorMsg) {
+        errorMsg.textContent = data.error || `Identifiants incorrects (HTTP ${res.status}).`;
+        errorMsg.hidden = false;
+      }
+    } catch (err) {
+      if (errorMsg) {
+        errorMsg.textContent = 'Erreur réseau : ' + err.message;
+        errorMsg.hidden = false;
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>Se connecter au tableau de bord</span>';
+      }
+    }
+  }
+
+  async function handleSetupFormSubmit(e) {
+    e.preventDefault();
+    const email = $('setupEmail')?.value.trim();
+    const password = $('setupPassword')?.value;
+    const passwordConfirm = $('setupPasswordConfirm')?.value;
+    const setupSecret = $('setupSecret')?.value.trim();
+    const errorMsg = $('setupErrorMsg');
+    const submitBtn = $('setupSubmitBtn');
+
+    if (errorMsg) errorMsg.hidden = true;
+
+    if (password.length < 8) {
+      if (errorMsg) {
+        errorMsg.textContent = 'Le mot de passe doit comporter au moins 8 caractères.';
+        errorMsg.hidden = false;
+      }
+      return;
+    }
+
+    if (password !== passwordConfirm) {
+      if (errorMsg) {
+        errorMsg.textContent = 'Les mots de passe ne correspondent pas.';
+        errorMsg.hidden = false;
+      }
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span>Création du compte...</span>';
+    }
+
+    try {
+      const res = await fetch('/api/auth/setup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ email, password, setupSecret })
+      });
+
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (_) {
+        const raw = await res.text().catch(() => '');
+        data = { error: raw.trim() || `Erreur serveur HTTP ${res.status}` };
+      }
+
+      if (res.ok && data.success) {
+        $('authScreen').style.display = 'none';
+        $('adminApp').style.display = 'flex';
+        if ($('adminEmail')) $('adminEmail').textContent = data.email || email;
+        const avatar = $('adminAvatar');
+        if (avatar) avatar.textContent = (data.email || email).substring(0, 2).toUpperCase();
+
+        await loadInitialMenu();
+        await loadSettings();
+        populateCategoryFilters();
+        refreshAll();
+        await checkBackendConnection();
+        showView('overview');
+        showToast('Compte administrateur créé avec succès !', 'success');
+        return;
+      }
+
+      if (errorMsg) {
+        errorMsg.textContent = data.error || `Erreur (${res.status}) lors de la création du compte.`;
+        errorMsg.hidden = false;
+      }
+    } catch (err) {
+      if (errorMsg) {
+        errorMsg.textContent = 'Erreur serveur : ' + err.message;
+        errorMsg.hidden = false;
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>Créer le compte et accéder au tableau de bord</span>';
+      }
+    }
+  }
+
+  async function handleLogout() {
+    if (!confirm('Voulez-vous vous déconnecter du tableau de bord ?')) return;
+
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin'
+      });
+    } catch (_) {}
+
+    $('adminApp').style.display = 'none';
+    $('authScreen').style.display = 'flex';
+    $('loginForm').hidden = false;
+    $('setupForm').hidden = true;
+    if ($('loginPassword')) $('loginPassword').value = '';
+    if ($('loginErrorMsg')) $('loginErrorMsg').hidden = true;
+    showToast('Déconnexion effectuée avec succès.', 'info');
+  }
+
+  function handleUnauthorized() {
+    $('adminApp').style.display = 'none';
+    $('authScreen').style.display = 'flex';
+    $('loginForm').hidden = false;
+    $('setupForm').hidden = true;
+    const loginErrorMsg = $('loginErrorMsg');
+    if (loginErrorMsg) {
+      loginErrorMsg.textContent = 'Votre session a expiré. Veuillez vous reconnecter.';
+      loginErrorMsg.hidden = false;
+    }
   }
 
   // --------------------------------------------------------------------------
-  // 4. RENDU DE LA VUE 1 : VUE D'ENSEMBLE
+  // 4. RENDU DE LA VUE 1 : VUE D'ENSEMBLE & STATISTIQUES
   // --------------------------------------------------------------------------
-  function renderOverviewStats() {
+  function renderOverview() {
     const dishes = getAllDishes();
-    const available = dishes.filter((d) => d.available !== false).length;
-    const unavailable = dishes.length - available;
-    const featured = dishes.filter((d) => d.best).length;
+    const totalDishes = dishes.length;
+    const availableDishes = dishes.filter((d) => d.available !== false).length;
+    const unavailableDishes = totalDishes - availableDishes;
+    const featuredDishes = dishes.filter((d) => d.best).length;
+    const totalCategories = menu.length;
 
-    $('statTotalDishes').textContent = dishes.length;
-    $('statAvailableDishes').textContent = available;
-    $('statUnavailableDishes').textContent = unavailable;
-    $('statFeaturedDishes').textContent = featured;
-    $('statTotalCategories').textContent = menu.length;
+    if ($('statTotalDishes')) $('statTotalDishes').textContent = totalDishes;
+    if ($('statAvailableDishes')) $('statAvailableDishes').textContent = availableDishes;
+    if ($('statUnavailableDishes')) $('statUnavailableDishes').textContent = unavailableDishes;
+    if ($('statFeaturedDishes')) $('statFeaturedDishes').textContent = featuredDishes;
+    if ($('statTotalCategories')) $('statTotalCategories').textContent = totalCategories;
 
-    $('dishesNavBadge').textContent = dishes.length;
-    $('catsNavBadge').textContent = menu.length;
-    $('featuredNavBadge').textContent = featured;
-  }
+    if ($('dishesNavBadge')) $('dishesNavBadge').textContent = totalDishes;
+    if ($('catsNavBadge')) $('catsNavBadge').textContent = totalCategories;
+    if ($('featuredNavBadge')) $('featuredNavBadge').textContent = featuredDishes;
 
-  function renderRecentDishes() {
-    const dishes = getAllDishes().slice(-6).reverse();
-    const tbody = $('recentDishesTable');
+    // Recent dishes table (latest 7 items)
+    const recentTable = $('recentDishesTable');
+    if (recentTable) {
+      const recent = [...dishes].reverse().slice(0, 7);
+      recentTable.innerHTML = recent
+        .map((d) => {
+          const pricesText = d.prices && d.prices.length > 1
+            ? d.prices.map((p) => `${p.label ? p.label + ': ' : ''}${fmt(p.amount)}`).join(' · ')
+            : fmt(d.p);
 
-    if (!tbody) return;
-
-    tbody.innerHTML = dishes
-      .map((d) => {
-        const pricesHtml = d.prices && d.prices.length > 1
-          ? d.prices.map((p) => `<span class="admin-price-badge"><span class="price-label">${esc(p.label || 'Taille')}</span> <span class="price-val">${fmt(p.amount)}</span></span>`).join('')
-          : `<span class="admin-price-badge"><span class="price-val">${fmt(d.p)}</span></span>`;
-
-        return `
-          <tr>
-            <td>
-              <div class="dish-meta-cell">
-                <div class="dish-thumb-box">
-                  <img src="${esc(d.img || 'img/logo.webp')}" class="dish-thumb-img" alt="${esc(d.n)}" onerror="this.src='img/logo.webp'">
+          return `
+            <tr>
+              <td>
+                <div class="table-dish-info">
+                  <img src="${esc(d.img || 'img/logo.webp')}" class="table-dish-thumb" alt="${esc(d.n)}" onerror="this.src='img/logo.webp'">
+                  <div>
+                    <strong>${esc(d.n)}</strong>
+                    <span class="table-dish-sub">${esc(d.d || 'Sans description')}</span>
+                  </div>
                 </div>
-                <div class="dish-copy">
-                  <span class="dish-name-title">${esc(d.n)} ${d.best ? '⭐' : ''}</span>
-                  <span class="dish-desc-text">${esc(d.d || 'Sans description')}</span>
-                </div>
+              </td>
+              <td><span class="category-pill">${esc(d.categoryIcon)} ${esc(d.categoryName)}</span></td>
+              <td><span class="price-pill">${esc(pricesText)}</span></td>
+              <td>
+                <span class="status-badge ${d.available !== false ? 'available' : 'unavailable'}">
+                  ${d.available !== false ? 'Disponible' : 'Masqué'}
+                </span>
+              </td>
+              <td>
+                <button class="btn btn-sm btn-ghost" data-action="edit-dish" data-cat="${esc(d.categoryId)}" data-idx="${d.index}">
+                  Modifier
+                </button>
+              </td>
+            </tr>
+          `;
+        })
+        .join('');
+    }
+
+    // Category distribution bars
+    const barsList = $('categoryBarsList');
+    if (barsList) {
+      const catCounts = menu.map((c) => ({
+        name: c.t,
+        icon: c.icon || '🍽️',
+        count: c.i?.length || 0,
+      }));
+      catCounts.sort((a, b) => b.count - a.count);
+
+      const maxCount = Math.max(...catCounts.map((c) => c.count), 1);
+      barsList.innerHTML = catCounts
+        .slice(0, 6)
+        .map((c) => {
+          const pct = Math.round((c.count / maxCount) * 100);
+          return `
+            <div class="cat-bar-item">
+              <div class="cat-bar-header">
+                <span>${esc(c.icon)} ${esc(c.name)}</span>
+                <strong>${c.count} plat(s)</strong>
               </div>
-            </td>
-            <td><span class="category-pill">${esc(d.categoryIcon)} ${esc(d.categoryName)}</span></td>
-            <td><div class="admin-price-cell">${pricesHtml}</div></td>
-            <td>
-              <button class="status-switch ${d.available !== false ? 'available' : 'unavailable'}" data-action="toggle-status" data-cat="${esc(d.categoryId)}" data-idx="${d.index}">
-                ${d.available !== false ? '● Disponible' : '○ Masqué'}
-              </button>
-            </td>
-            <td>
-              <button class="btn btn-sm btn-ghost" data-action="edit-dish" data-cat="${esc(d.categoryId)}" data-idx="${d.index}">
-                Modifier
-              </button>
-            </td>
-          </tr>
-        `;
-      })
-      .join('');
-  }
-
-  function renderCategoryBars() {
-    const container = $('categoryBarsList');
-    if (!container) return;
-
-    const totalDishes = getAllDishes().length || 1;
-    const sortedCats = [...menu].sort((a, b) => (b.i?.length || 0) - (a.i?.length || 0)).slice(0, 5);
-
-    container.innerHTML = sortedCats
-      .map((cat) => {
-        const count = cat.i?.length || 0;
-        const pct = Math.round((count / totalDishes) * 100);
-        return `
-          <div class="cat-bar-item">
-            <div class="cat-bar-header">
-              <span>${esc(cat.icon || '🍽️')} ${esc(cat.t)}</span>
-              <span class="text-muted">${count} plats (${pct}%)</span>
+              <div class="cat-bar-track">
+                <div class="cat-bar-fill" style="width: ${pct}%;"></div>
+              </div>
             </div>
-            <div class="cat-bar-track">
-              <div class="cat-bar-fill" style="width: ${pct}%"></div>
-            </div>
-          </div>
-        `;
-      })
-      .join('');
+          `;
+        })
+        .join('');
+    }
   }
 
   // --------------------------------------------------------------------------
-  // 5. RENDU DE LA VUE 2 : PLATS & TARIFS
+  // 5. RENDU DE LA VUE 2 : TABLE DES PLATS & TARIFS
   // --------------------------------------------------------------------------
-  function populateCategoryFilters() {
-    const filterSelects = [$('dishCatFilter'), $('featuredCatFilter'), $('photoCatFilter'), $('modalDishCat')];
-    const catOptions = menu.map((c) => `<option value="${esc(c.id)}">${esc(c.icon || '🍽️')} ${esc(c.t)}</option>`).join('');
-
-    filterSelects.forEach((sel) => {
-      if (!sel) return;
-      if (sel.id === 'modalDishCat') {
-        sel.innerHTML = catOptions;
-      } else {
-        sel.innerHTML = '<option value="all">Toutes les catégories</option>' + catOptions;
-      }
-    });
-  }
-
   function renderDishesTable() {
     const tbody = $('dishesTableBody');
     const emptyState = $('emptyDishesState');
@@ -460,38 +548,34 @@
 
     let rows = getAllDishes();
 
-    // Search filter
+    // Filters
     if (activeDishSearch) {
-      const q = activeDishSearch.toLowerCase().trim();
-      rows = rows.filter((d) =>
-        (d.n + ' ' + (d.d || '') + ' ' + d.categoryName).toLowerCase().includes(q)
+      rows = rows.filter(
+        (d) =>
+          d.n.toLowerCase().includes(activeDishSearch) ||
+          (d.d || '').toLowerCase().includes(activeDishSearch) ||
+          (d.prices || []).some((p) => String(p.amount).includes(activeDishSearch))
       );
     }
-
-    // Category filter
     if (activeDishCat !== 'all') {
       rows = rows.filter((d) => d.categoryId === activeDishCat);
     }
-
-    // Status filter
     if (activeDishStatus === 'available') {
       rows = rows.filter((d) => d.available !== false);
     } else if (activeDishStatus === 'unavailable') {
       rows = rows.filter((d) => d.available === false);
     }
-
-    // Featured filter
     if (activeDishFeatured === 'featured') {
       rows = rows.filter((d) => d.best);
     }
 
-    // Sort
+    // Sorting
     if (activeDishSort === 'name-asc') {
-      rows.sort((a, b) => a.n.localeCompare(b.n, 'fr'));
+      rows.sort((a, b) => a.n.localeCompare(b.n));
     } else if (activeDishSort === 'price-asc') {
-      rows.sort((a, b) => (a.prices[0]?.amount || 0) - (b.prices[0]?.amount || 0));
+      rows.sort((a, b) => (a.p || 0) - (b.p || 0));
     } else if (activeDishSort === 'price-desc') {
-      rows.sort((a, b) => (b.prices[0]?.amount || 0) - (a.prices[0]?.amount || 0));
+      rows.sort((a, b) => (b.p || 0) - (a.p || 0));
     }
 
     if (rows.length === 0) {
@@ -550,7 +634,7 @@
   }
 
   // --------------------------------------------------------------------------
-  // 6. MODALE PLAT : AJOUT & MODIFICATION AVEC SUPPORT MULTI-PRIX COMPLET
+  // 6. MODALE PLAT : MULTI-PRIX ET ATTRIBUTION AUTOMATIQUE D'IMAGE SELON CATÉGORIE
   // --------------------------------------------------------------------------
   function openDishModal(catId = null, index = null) {
     const isEdit = index !== null;
@@ -564,6 +648,9 @@
     $('dishEditOriginalCat').value = catId || '';
     $('dishEditOriginalIndex').value = isEdit ? index : '';
 
+    const pathInput = $('modalDishImgPath');
+    const previewImg = $('dishPreviewImg');
+
     if (isEdit) {
       const cat = menu.find((c) => c.id === catId);
       const dish = cat?.i[index];
@@ -573,20 +660,31 @@
       $('modalDishName').value = normalized.n || '';
       $('modalDishCat').value = cat.id;
       $('modalDishDesc').value = normalized.d || '';
-      $('modalDishImgPath').value = normalized.img || '';
-      $('dishPreviewImg').src = normalized.img || 'img/logo.webp';
+
+      const currentImg = normalized.img || getCategoryDefaultImage(cat.id);
+      pathInput.value = currentImg;
+      previewImg.src = currentImg;
+
+      // Track if dish image differs from its category default
+      pathInput.dataset.isCustom = (normalized.img && normalized.img !== cat.img) ? 'true' : 'false';
+
       $('modalDishAvailable').checked = normalized.available !== false;
       $('modalDishBest').checked = !!normalized.best;
 
-      // Render all price options
       renderPriceRows(normalized.prices);
     } else {
-      $('modalDishCat').value = catId || menu[0]?.id || '';
-      $('dishPreviewImg').src = 'img/logo.webp';
+      const defaultCatId = catId || menu[0]?.id || '';
+      $('modalDishCat').value = defaultCatId;
+
+      // AUTOMATIC: Assign category's default image to new dish
+      const defaultImg = getCategoryDefaultImage(defaultCatId);
+      pathInput.value = defaultImg;
+      previewImg.src = defaultImg;
+      pathInput.dataset.isCustom = 'false';
+
       $('modalDishAvailable').checked = true;
       $('modalDishBest').checked = false;
 
-      // Default single price row
       renderPriceRows([{ label: '', amount: '' }]);
     }
 
@@ -603,9 +701,9 @@
     const available = $('modalDishAvailable').checked;
     const best = $('modalDishBest').checked;
 
-    // Sanitize image path: force change from jpg, jpeg, png, jfif, bmp to .webp
-    if (img && !img.startsWith('data:')) {
-      img = img.replace(/\.(jpe?g|png|jfif|bmp|avif)$/i, '.webp');
+    // Fallback: If image path was left empty, automatically use category default image
+    if (!img) {
+      img = getCategoryDefaultImage(catId);
     }
 
     const prices = collectPricesFromForm();
@@ -642,16 +740,13 @@
       const origCat = menu.find((c) => c.id === originalCatId);
 
       if (origCat && origCat.id === cat.id) {
-        // Updated in same category
         origCat.i[origIndex] = { ...origCat.i[origIndex], ...newDishData };
       } else if (origCat) {
-        // Moved to a different category
         origCat.i.splice(origIndex, 1);
         cat.i.push(newDishData);
       }
       showToast(`Plat « ${name} » mis à jour avec ${prices.length} option(s) de prix.`, 'success');
     } else {
-      // New dish
       if (!cat.i) cat.i = [];
       cat.i.push(newDishData);
       showToast(`Plat « ${name} » ajouté au menu.`, 'success');
@@ -662,7 +757,122 @@
   }
 
   // --------------------------------------------------------------------------
-  // 7. RENDU DE LA VUE 3 : CATÉGORIES (AVEC SÉCURITÉ DE SUPPRESSION)
+  // 7. GESTIONNAIRE D'OPTIONS DE PRIX (MULTI-PRIX)
+  // --------------------------------------------------------------------------
+  function renderPriceRows(prices = []) {
+    const container = $('priceRowsContainer');
+    if (!container) return;
+
+    if (!prices || prices.length === 0) {
+      prices = [{ label: '', amount: '' }];
+    }
+
+    container.innerHTML = prices
+      .map((p, index) => createPriceRowHtml(index, p.label || '', p.amount ?? ''))
+      .join('');
+
+    attachPriceRowListeners();
+  }
+
+  function createPriceRowHtml(index, label, amount) {
+    return `
+      <div class="price-row" data-price-index="${index}">
+        <div class="price-col label-col">
+          <label class="price-sublabel">Taille / Option</label>
+          <input type="text" class="price-label-input" value="${esc(label)}" placeholder="Ex: Solo, 1 pers., XL..." maxlength="30">
+        </div>
+        <div class="price-col amount-col">
+          <label class="price-sublabel">Montant (DH) <span class="required">*</span></label>
+          <div class="amount-input-wrap">
+            <input type="number" step="0.5" min="0" class="price-amount-input" value="${esc(amount)}" placeholder="0.00" required>
+            <span class="currency-tag">DH</span>
+          </div>
+        </div>
+        <div class="price-col actions-col">
+          <button type="button" class="btn-remove-price" data-remove-price="${index}" title="Supprimer cette option de prix" aria-label="Supprimer">
+            ✕
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function attachPriceRowListeners() {
+    const container = $('priceRowsContainer');
+    if (!container) return;
+
+    container.querySelectorAll('[data-remove-price]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const rows = container.querySelectorAll('.price-row');
+        if (rows.length <= 1) {
+          showToast('Un plat doit comporter au moins une option de prix.', 'warning');
+          return;
+        }
+        const row = e.target.closest('.price-row');
+        row.remove();
+        reindexPriceRows();
+      });
+    });
+  }
+
+  function reindexPriceRows() {
+    const container = $('priceRowsContainer');
+    if (!container) return;
+    container.querySelectorAll('.price-row').forEach((row, idx) => {
+      row.dataset.priceIndex = idx;
+      const removeBtn = row.querySelector('.btn-remove-price');
+      if (removeBtn) removeBtn.dataset.removePrice = idx;
+    });
+  }
+
+  function addPriceRow(label = '', amount = '') {
+    const container = $('priceRowsContainer');
+    if (!container) return;
+
+    const currentRows = container.querySelectorAll('.price-row');
+    const newIndex = currentRows.length;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = createPriceRowHtml(newIndex, label, amount);
+
+    const newRow = tempDiv.firstElementChild;
+    container.appendChild(newRow);
+
+    newRow.querySelector('[data-remove-price]').addEventListener('click', () => {
+      const rows = container.querySelectorAll('.price-row');
+      if (rows.length <= 1) {
+        showToast('Un plat doit comporter au moins une option de prix.', 'warning');
+        return;
+      }
+      newRow.remove();
+      reindexPriceRows();
+    });
+
+    const amountInput = newRow.querySelector('.price-amount-input');
+    if (amountInput) amountInput.focus();
+  }
+
+  function collectPricesFromForm() {
+    const container = $('priceRowsContainer');
+    if (!container) return null;
+
+    const rows = container.querySelectorAll('.price-row');
+    const prices = [];
+
+    rows.forEach((row) => {
+      const label = row.querySelector('.price-label-input')?.value.trim() || '';
+      const amountStr = row.querySelector('.price-amount-input')?.value.trim() || '';
+      const amount = parseFloat(amountStr);
+
+      if (!isNaN(amount) && amount >= 0) {
+        prices.push({ label, amount });
+      }
+    });
+
+    return prices;
+  }
+
+  // --------------------------------------------------------------------------
+  // 8. RENDU DE LA VUE 3 : CATÉGORIES (AVEC SÉCURITÉ DE SUPPRESSION)
   // --------------------------------------------------------------------------
   function renderCategories() {
     const grid = $('categoryCardsGrid');
@@ -752,8 +962,8 @@
       menu.push({
         id: slug,
         t: name,
-        icon: icon,
         g: group,
+        icon: icon,
         img: img,
         i: [],
       });
@@ -761,6 +971,7 @@
     }
 
     $('categoryModal').close();
+    populateCategoryFilters();
     saveMenu();
   }
 
@@ -770,29 +981,28 @@
 
     pendingDeleteCatId = catId;
     const dishCount = cat.i?.length || 0;
-
-    $('deleteCatModalTitle').textContent = `Supprimer la catégorie « ${cat.t} » ?`;
-    $('deleteCatWarningText').innerHTML = dishCount > 0
-      ? `Cette catégorie contient <strong>${dishCount} plat(s)</strong>. Si vous confirmez, ces ${dishCount} plats seront également définitivement supprimés du menu digital.`
-      : `Cette catégorie ne contient aucun plat. La suppression est sans danger pour le reste du menu.`;
+    $('deleteCatModalTitle').textContent = `Supprimer « ${cat.t} » ?`;
+    $('deleteCatWarningText').innerHTML = `Cette catégorie contient <strong>${dishCount} plat(s)</strong>. Si vous confirmez, la catégorie et tous ses plats associés seront supprimés du menu.`;
 
     $('deleteCatModal').showModal();
   }
 
   function confirmCategoryDelete() {
     if (!pendingDeleteCatId) return;
-    const cat = menu.find((c) => c.id === pendingDeleteCatId);
-    if (cat) {
-      menu = menu.filter((c) => c.id !== pendingDeleteCatId);
-      showToast(`Catégorie « ${cat.t} » supprimée.`, 'success');
-      saveMenu();
+
+    const idx = menu.findIndex((c) => c.id === pendingDeleteCatId);
+    if (idx !== -1) {
+      const deletedCat = menu.splice(idx, 1)[0];
+      saveMenu(`Catégorie « ${deletedCat.t} » supprimée.`);
+      populateCategoryFilters();
     }
+
     pendingDeleteCatId = null;
     $('deleteCatModal').close();
   }
 
   // --------------------------------------------------------------------------
-  // 8. RENDU DE LA VUE 4 : NOS MEILLEURS PLATS (CARROUSEL)
+  // 9. RENDU DE LA VUE 4 : NOS MEILLEURS PLATS (CARROUSEL)
   // --------------------------------------------------------------------------
   function renderFeaturedView() {
     const grid = $('featuredSelectionGrid');
@@ -836,39 +1046,76 @@
   }
 
   // --------------------------------------------------------------------------
-  // 9. RENDU DE LA VUE 5 : MÉDIATHÈQUE / PHOTOS
+  // 10. RENDU DE LA VUE 5 : MÉDIATHÈQUE STATIQUE (AVEC COPIE EN 1 CLIC)
   // --------------------------------------------------------------------------
   function renderPhotos() {
     const grid = $('mediaLibraryGrid');
     const badge = $('photoCountBadge');
     if (!grid) return;
 
-    const dishes = getAllDishes();
     const searchVal = ($('photoSearchInput')?.value || '').toLowerCase().trim();
     const catVal = $('photoCatFilter')?.value || 'all';
 
-    let list = dishes.filter((d) => d.img);
+    const photos = [];
+
+    // 1. Category photos
+    menu.forEach((cat) => {
+      if (cat.img) {
+        photos.push({
+          name: `Catégorie : ${cat.t}`,
+          path: cat.img,
+          type: 'category',
+          catId: cat.id,
+          catName: cat.t,
+          icon: cat.icon || '🍽️',
+        });
+      }
+    });
+
+    // 2. Dish photos
+    getAllDishes().forEach((dish) => {
+      if (dish.img) {
+        photos.push({
+          name: dish.n,
+          path: dish.img,
+          type: 'dish',
+          catId: dish.categoryId,
+          catName: dish.categoryName,
+          icon: dish.categoryIcon || '🍽️',
+        });
+      }
+    });
+
+    // Deduplicate by path
+    const seenPaths = new Set();
+    const uniquePhotos = photos.filter((p) => {
+      if (seenPaths.has(p.path)) return false;
+      seenPaths.add(p.path);
+      return true;
+    });
+
+    let filtered = uniquePhotos;
     if (searchVal) {
-      list = list.filter((d) => d.n.toLowerCase().includes(searchVal) || (d.img || '').toLowerCase().includes(searchVal));
+      filtered = filtered.filter((p) => p.name.toLowerCase().includes(searchVal) || p.path.toLowerCase().includes(searchVal));
     }
     if (catVal !== 'all') {
-      list = list.filter((d) => d.categoryId === catVal);
+      filtered = filtered.filter((p) => p.catId === catVal);
     }
 
-    if (badge) badge.textContent = `${list.length} photos affichées`;
+    if (badge) badge.textContent = `${filtered.length} photo(s) répertoriée(s)`;
 
-    grid.innerHTML = list
-      .map((d) => `
+    grid.innerHTML = filtered
+      .map((p) => `
         <article class="photo-card">
-          <div class="photo-card-img-wrap">
-            <img src="${esc(d.img)}" alt="${esc(d.n)}" loading="lazy" onerror="this.src='img/logo.webp'">
+          <div class="photo-card-img-wrap" style="cursor: pointer;" data-action="copy-img-path" data-path="${esc(p.path)}" title="Cliquer pour copier le chemin">
+            <img src="${esc(p.path)}" alt="${esc(p.name)}" loading="lazy" onerror="this.src='img/logo.webp'">
           </div>
           <div class="photo-card-body">
-            <h4 class="photo-card-title">${esc(d.n)}</h4>
-            <span class="photo-card-path">${esc(d.img)}</span>
-            <div style="margin-top: 6px; display: flex; gap: 8px;">
-              <button class="btn btn-sm btn-secondary" style="flex: 1;" data-action="edit-dish" data-cat="${esc(d.categoryId)}" data-idx="${d.index}">
-                Changer la photo
+            <h4 class="photo-card-title">${esc(p.name)}</h4>
+            <span class="photo-card-path" title="${esc(p.path)}">${esc(p.path)}</span>
+            <div style="margin-top: 8px; display: flex; gap: 6px;">
+              <button type="button" class="btn btn-sm btn-secondary" style="flex: 1;" data-action="copy-img-path" data-path="${esc(p.path)}">
+                📋 Copier le chemin
               </button>
             </div>
           </div>
@@ -878,35 +1125,44 @@
   }
 
   // --------------------------------------------------------------------------
-  // 10. RENDU DE LA VUE 6 : PARAMÈTRES DU RESTAURANT
+  // 11. PARAMÈTRES DU RESTAURANT
   // --------------------------------------------------------------------------
   async function loadSettings() {
-    let settings = null;
     try {
-      const response = await fetch('/api/settings', { method: 'GET', cache: 'no-store' });
-      if (response.ok) settings = await response.json();
+      const response = await fetch('/api/settings', {
+        method: 'GET',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+        cache: 'no-store'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        applySettingsToForm(data);
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(data));
+        return;
+      }
     } catch (_) {}
 
-    if (!settings || typeof settings !== 'object' || !Object.keys(settings).length) {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    if (saved) {
       try {
-        settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-      } catch (_) {
-        settings = {};
-      }
-    } else {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        applySettingsToForm(JSON.parse(saved));
+      } catch (_) {}
     }
+  }
 
-    if ($('setRestoName')) $('setRestoName').value = settings.name || '';
-    if ($('setRestoTagline')) $('setRestoTagline').value = settings.tagline || '';
-    if ($('setRestoDesc')) $('setRestoDesc').value = settings.desc || '';
-    if ($('setRestoPhone')) $('setRestoPhone').value = settings.phone || '';
-    if ($('setRestoWhatsApp')) $('setRestoWhatsApp').value = settings.whatsapp || '';
-    if ($('setRestoAddress')) $('setRestoAddress').value = settings.address || '';
-    if ($('setRestoWifi')) $('setRestoWifi').value = settings.wifi || '';
-    if ($('setRestoHours')) $('setRestoHours').value = settings.hours || 'Ouvert 7j/7 de 11h00 à 02h00';
-    if ($('setRestoInstagram')) $('setRestoInstagram').value = settings.instagram || '';
-    if ($('setRestoMaps')) $('setRestoMaps').value = settings.maps || '';
+  function applySettingsToForm(settings) {
+    if (!settings || typeof settings !== 'object') return;
+    if ($('setRestoName') && settings.name) $('setRestoName').value = settings.name;
+    if ($('setRestoTagline') && settings.tagline !== undefined) $('setRestoTagline').value = settings.tagline;
+    if ($('setRestoDesc') && settings.desc !== undefined) $('setRestoDesc').value = settings.desc;
+    if ($('setRestoPhone') && settings.phone !== undefined) $('setRestoPhone').value = settings.phone;
+    if ($('setRestoWhatsApp') && settings.whatsapp !== undefined) $('setRestoWhatsApp').value = settings.whatsapp;
+    if ($('setRestoAddress') && settings.address !== undefined) $('setRestoAddress').value = settings.address;
+    if ($('setRestoWifi') && settings.wifi !== undefined) $('setRestoWifi').value = settings.wifi;
+    if ($('setRestoHours') && settings.hours !== undefined) $('setRestoHours').value = settings.hours;
+    if ($('setRestoInstagram') && settings.instagram !== undefined) $('setRestoInstagram').value = settings.instagram;
+    if ($('setRestoMaps') && settings.maps !== undefined) $('setRestoMaps').value = settings.maps;
   }
 
   async function handleSettingsSubmit(e) {
@@ -919,104 +1175,113 @@
       whatsapp: $('setRestoWhatsApp')?.value.trim() || '',
       address: $('setRestoAddress')?.value.trim() || '',
       wifi: $('setRestoWifi')?.value.trim() || '',
-      hours: $('setRestoHours')?.value.trim() || 'Ouvert 7j/7 de 11h00 à 02h00',
+      hours: $('setRestoHours')?.value.trim() || '',
       instagram: $('setRestoInstagram')?.value.trim() || '',
       maps: $('setRestoMaps')?.value.trim() || '',
     };
 
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    window.dispatchEvent(new Event('storage'));
 
-    // Synchronize settings with the backend; never claim cloud success on failure.
     try {
       const response = await fetch('/api/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-        cache: 'no-store'
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(settings)
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      showToast('Coordonnées du restaurant synchronisées avec le serveur.', 'success');
-    } catch (_) {
-      showToast('Paramètres enregistrés sur cet appareil uniquement. Synchronisation Cloudflare indisponible.', 'warning');
-    }
+      if (response.status === 401) {
+        handleUnauthorized();
+        return;
+      }
+      if (response.ok) {
+        showToast('Paramètres du restaurant synchronisés avec le serveur.', 'success');
+        return;
+      }
+    } catch (_) {}
+
+    showToast('Paramètres enregistrés localement.', 'info');
   }
 
   // --------------------------------------------------------------------------
-  // 11. NAVIGATION PRINCIPALE (VIEWS SWITCHER)
+  // 12. GESTION DES VUES & ROUTAGE INTERNE
   // --------------------------------------------------------------------------
-  function showView(viewId) {
-    currentView = viewId;
+  function showView(viewName) {
+    currentView = viewName;
 
-    document.querySelectorAll('.admin-view').forEach((el) => {
-      el.classList.toggle('active', el.id === `view-${viewId}`);
-    });
+    document.querySelectorAll('.admin-view').forEach((el) => el.classList.remove('active'));
+    document.querySelectorAll('.nav-link[data-view]').forEach((el) => el.classList.remove('active'));
 
-    document.querySelectorAll('.nav-link[data-view]').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.view === viewId);
-    });
+    const targetView = $(`view-${viewName}`);
+    const targetNavLink = document.querySelector(`.nav-link[data-view="${viewName}"]`);
+
+    if (targetView) targetView.classList.add('active');
+    if (targetNavLink) targetNavLink.classList.add('active');
 
     const titles = {
       overview: "Vue d'ensemble",
       dishes: 'Plats & Tarifs',
       categories: 'Catégories',
       featured: 'Nos meilleurs plats',
-      photos: 'Médiathèque & Photos',
+      photos: 'Médiathèque des photos',
       settings: 'Paramètres du restaurant',
     };
 
-    const title = titles[viewId] || 'Administration';
-    $('pageTitle').textContent = title;
-    $('breadcrumbTitle').textContent = title;
+    if ($('breadcrumbTitle')) $('breadcrumbTitle').textContent = titles[viewName] || viewName;
+    if ($('pageTitle')) $('pageTitle').textContent = titles[viewName] || viewName;
 
-    // Close mobile sidebar if open
-    closeMobileSidebar();
+    if (viewName === 'overview') renderOverview();
+    if (viewName === 'dishes') renderDishesTable();
+    if (viewName === 'categories') renderCategories();
+    if (viewName === 'featured') renderFeaturedView();
+    if (viewName === 'photos') renderPhotos();
 
-    // Trigger views refresh
-    if (viewId === 'overview') {
-      renderOverviewStats();
-      renderRecentDishes();
-      renderCategoryBars();
-    } else if (viewId === 'dishes') {
-      renderDishesTable();
-    } else if (viewId === 'categories') {
-      renderCategories();
-    } else if (viewId === 'featured') {
-      renderFeaturedView();
-    } else if (viewId === 'photos') {
-      renderPhotos();
-    } else if (viewId === 'settings') {
-      loadSettings();
-    }
-  }
-
-  function closeMobileSidebar() {
+    // Close mobile drawer if open
     $('sidebar')?.classList.remove('open');
     $('sidebarBackdrop')?.classList.remove('active');
   }
 
-  function openMobileSidebar() {
-    $('sidebar')?.classList.add('open');
-    $('sidebarBackdrop')?.classList.add('active');
-  }
-
   function refreshAll() {
-    renderOverviewStats();
-    populateCategoryFilters();
-    renderRecentDishes();
-    renderCategoryBars();
+    renderOverview();
     renderDishesTable();
     renderCategories();
     renderFeaturedView();
     renderPhotos();
   }
 
+  function populateCategoryFilters() {
+    const filters = [$('dishCatFilter'), $('featuredCatFilter'), $('photoCatFilter')];
+    const modalSelect = $('modalDishCat');
+
+    const filterOptions =
+      `<option value="all">Toutes les catégories</option>` +
+      menu.map((c) => `<option value="${esc(c.id)}">${esc(c.icon || '🍽️')} ${esc(c.t)}</option>`).join('');
+
+    filters.forEach((select) => {
+      if (select) {
+        const currentVal = select.value;
+        select.innerHTML = filterOptions;
+        select.value = currentVal || 'all';
+      }
+    });
+
+    if (modalSelect) {
+      const currentModalVal = modalSelect.value;
+      modalSelect.innerHTML = menu
+        .map((c) => `<option value="${esc(c.id)}">${esc(c.icon || '🍽️')} ${esc(c.t)}</option>`)
+        .join('');
+      if (currentModalVal) modalSelect.value = currentModalVal;
+    }
+  }
+
   // --------------------------------------------------------------------------
-  // 12. GESTION DES ÉVÉNEMENTS GLOBAUX
+  // 13. ÉCOUTEURS D'ÉVÉNEMENTS
   // --------------------------------------------------------------------------
   function setupEventListeners() {
-    // Navigation links
-    document.querySelectorAll('.nav-link[data-view]').forEach((btn) => {
+    // Navigation
+    document.querySelectorAll('[data-view]').forEach((btn) => {
       btn.addEventListener('click', () => showView(btn.dataset.view));
     });
 
@@ -1024,41 +1289,26 @@
       btn.addEventListener('click', () => showView(btn.dataset.goto));
     });
 
-    // Mobile sidebar toggle
-    $('mobileMenuBtn')?.addEventListener('click', openMobileSidebar);
-    $('sidebarCloseBtn')?.addEventListener('click', closeMobileSidebar);
-    $('sidebarBackdrop')?.addEventListener('click', closeMobileSidebar);
-
-    // Modal close buttons
-    document.querySelectorAll('[data-close-modal]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const dialog = $(btn.dataset.closeModal);
-        if (dialog) dialog.close();
-      });
+    // Mobile sidebar
+    $('mobileMenuBtn')?.addEventListener('click', () => {
+      $('sidebar')?.classList.add('open');
+      $('sidebarBackdrop')?.classList.add('active');
     });
 
-    // Top action buttons
-    $('topAddDishBtn')?.addEventListener('click', () => openDishModal());
-    $('addDishBtn')?.addEventListener('click', () => openDishModal());
-    $('quickAddDish')?.addEventListener('click', () => openDishModal());
-    $('addCategoryBtn')?.addEventListener('click', () => openCategoryModal());
-
-    // Export JSON Backup
-    $('exportBtn')?.addEventListener('click', () => {
-      const blob = new Blob([JSON.stringify(menu, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `pizzeria-kamal-menu-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      showToast('Copie de sauvegarde du menu téléchargée.', 'success');
+    $('sidebarCloseBtn')?.addEventListener('click', () => {
+      $('sidebar')?.classList.remove('open');
+      $('sidebarBackdrop')?.classList.remove('active');
     });
 
-    // Dish filter controls
+    $('sidebarBackdrop')?.addEventListener('click', () => {
+      $('sidebar')?.classList.remove('open');
+      $('sidebarBackdrop')?.classList.remove('active');
+    });
+
+    // Dishes Toolbar Filters
     $('dishSearchInput')?.addEventListener('input', (e) => {
-      activeDishSearch = e.target.value;
-      const clearBtn = $('clearDishSearch');
-      if (clearBtn) clearBtn.hidden = !activeDishSearch;
+      activeDishSearch = e.target.value.toLowerCase().trim();
+      $('clearDishSearch').hidden = !activeDishSearch;
       renderDishesTable();
     });
 
@@ -1100,153 +1350,89 @@
       activeDishStatus = 'all';
       activeDishFeatured = 'all';
       activeDishSort = 'default';
+      $('clearDishSearch').hidden = true;
       renderDishesTable();
     });
 
-    // Featured view controls
+    // Featured & Photos Filters
     $('featuredSearchInput')?.addEventListener('input', renderFeaturedView);
     $('featuredCatFilter')?.addEventListener('change', renderFeaturedView);
 
-    // Photos view controls
     $('photoSearchInput')?.addEventListener('input', renderPhotos);
     $('photoCatFilter')?.addEventListener('change', renderPhotos);
 
-    // Price option builder events
-    $('addPriceOptionBtn')?.addEventListener('click', () => {
-      const container = $('priceRowsContainer');
-      const newRow = createPriceRow('', '');
-      container.appendChild(newRow);
-      updateDeletePriceButtonsState();
-      newRow.querySelector('.price-row-label-input')?.focus();
+    // Modal Trigger Buttons
+    $('addDishBtn')?.addEventListener('click', () => openDishModal());
+    $('topAddDishBtn')?.addEventListener('click', () => openDishModal());
+    $('quickAddDish')?.addEventListener('click', () => openDishModal());
+    $('addCategoryBtn')?.addEventListener('click', () => openCategoryModal());
+
+    // Modal Close Buttons
+    document.querySelectorAll('[data-close-modal]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const modalId = btn.dataset.closeModal;
+        const modal = $(modalId);
+        if (modal) modal.close();
+      });
     });
 
-    // Quick chips for price labels
+    // Multi-Price: Add option & Quick chip suggestions
+    $('addPriceOptionBtn')?.addEventListener('click', () => addPriceRow());
+
     document.querySelectorAll('.price-chip').forEach((chip) => {
       chip.addEventListener('click', () => {
-        const val = chip.dataset.chip;
-        const container = $('priceRowsContainer');
-        const emptyRow = Array.from(container.querySelectorAll('.price-row-item')).find(
-          (row) => !row.querySelector('.price-row-label-input')?.value.trim()
-        );
+        const label = chip.dataset.chip;
+        const emptyRow = Array.from(document.querySelectorAll('.price-row')).find((row) => {
+          const inp = row.querySelector('.price-label-input');
+          return inp && !inp.value.trim();
+        });
 
         if (emptyRow) {
-          const input = emptyRow.querySelector('.price-row-label-input');
-          if (input) input.value = val;
-          emptyRow.querySelector('.price-row-amount-input')?.focus();
+          const inp = emptyRow.querySelector('.price-label-input');
+          inp.value = label;
+          emptyRow.querySelector('.price-amount-input')?.focus();
         } else {
-          const newRow = createPriceRow(val, '');
-          container.appendChild(newRow);
-          updateDeletePriceButtonsState();
-          newRow.querySelector('.price-row-amount-input')?.focus();
+          addPriceRow(label, '');
         }
       });
     });
 
-    // Image preview on URL input
+    // AUTOMATIC CATEGORY IMAGE: Update dish image when changing category
+    $('modalDishCat')?.addEventListener('change', (e) => {
+      const selectedCatId = e.target.value;
+      const isEdit = $('dishEditOriginalIndex').value !== '';
+      const pathInput = $('modalDishImgPath');
+      const previewImg = $('dishPreviewImg');
+
+      // For new dishes, or existing dishes where the image hasn't been explicitly customized:
+      if (!isEdit || pathInput?.dataset.isCustom !== 'true') {
+        const newImg = getCategoryDefaultImage(selectedCatId);
+        if (pathInput) pathInput.value = newImg;
+        if (previewImg) previewImg.src = newImg;
+      }
+    });
+
+    // Reset/assign category default image explicitly
+    $('useCatDefaultImgBtn')?.addEventListener('click', () => {
+      const selectedCatId = $('modalDishCat')?.value;
+      const catImg = getCategoryDefaultImage(selectedCatId);
+      const pathInput = $('modalDishImgPath');
+      if (pathInput) {
+        pathInput.value = catImg;
+        pathInput.dataset.isCustom = 'false';
+      }
+      const previewImg = $('dishPreviewImg');
+      if (previewImg) previewImg.src = catImg;
+      showToast(`Image par défaut de la catégorie assignée (${catImg})`, 'info');
+    });
+
+    // Manual input in image path updates preview and flags custom image
     $('modalDishImgPath')?.addEventListener('input', (e) => {
       const val = e.target.value.trim();
-      $('dishPreviewImg').src = val || 'img/logo.webp';
+      const previewImg = $('dishPreviewImg');
+      if (previewImg) previewImg.src = val || 'img/logo.webp';
+      $('modalDishImgPath').dataset.isCustom = 'true';
     });
-
-    // Automatically convert any .jpg, .jpeg, .png, .jfif path to .webp when typed or pasted
-    $('modalDishImgPath')?.addEventListener('change', (e) => {
-      let val = e.target.value.trim();
-      if (val && !val.startsWith('data:')) {
-        const newVal = val.replace(/\.(jpe?g|png|jfif|bmp|avif)$/i, '.webp');
-        if (newVal !== val) {
-          e.target.value = newVal;
-          $('dishPreviewImg').src = newVal;
-          showToast(`Extension mise à jour en .webp : ${newVal}`, 'info');
-        }
-      }
-    });
-
-    // File input image upload with automatic conversion to WebP and compression
-    $('modalDishFileInput')?.addEventListener('change', async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      if (file.size > 15 * 1024 * 1024) {
-        showToast('Image trop volumineuse (Max 15 Mo).', 'warning');
-        e.target.value = '';
-        return;
-      }
-
-      try {
-        showToast(`Conversion de « ${file.name} » en WebP et compression...`, 'info');
-        const res = await compressAndConvertToWebp(file, 1100, 0.82);
-
-        // Preview the compressed WebP image
-        $('dishPreviewImg').src = res.webpDataUrl;
-
-        // Set compressed WebP data URL into input (instant local compatibility)
-        $('modalDishImgPath').value = res.webpDataUrl;
-        $('modalDishImgPath').dataset.webpFilename = res.webpFileName;
-
-        const origStr = formatBytes(res.originalSize);
-        const compStr = formatBytes(res.compressedSize);
-        showToast(`Photo convertie en WebP (${res.webpFileName}) : ${origStr} → ${compStr} (-${res.savings}%).`, 'success');
-      } catch (err) {
-        showToast(`Erreur traitement image: ${err.message}`, 'warning');
-      }
-    });
-
-    // Global Photo Dropzone (R2 Ready)
-    const dropzone = $('globalDropzone');
-    const photoFileInput = $('globalPhotoInput');
-
-    if (dropzone && photoFileInput) {
-      dropzone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropzone.classList.add('dragover');
-      });
-
-      dropzone.addEventListener('dragleave', () => {
-        dropzone.classList.remove('dragover');
-      });
-
-      dropzone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropzone.classList.remove('dragover');
-        const file = e.dataTransfer.files?.[0];
-        if (file) handlePhotoUpload(file);
-      });
-
-      photoFileInput.addEventListener('change', (e) => {
-        const file = e.target.files?.[0];
-        if (file) handlePhotoUpload(file);
-      });
-    }
-
-    async function handlePhotoUpload(file) {
-      if (file.size > 15 * 1024 * 1024) {
-        showToast('Fichier trop volumineux. Limite maximale de 15 Mo.', 'warning');
-        return;
-      }
-
-      try {
-        showToast(`Conversion de « ${file.name} » en WebP et compression...`, 'info');
-        const res = await compressAndConvertToWebp(file, 1100, 0.82);
-        const origStr = formatBytes(res.originalSize);
-        const compStr = formatBytes(res.compressedSize);
-
-        // If backend connected, upload to R2
-        try {
-          const formData = new FormData();
-          formData.append('file', res.webpFile || res.blob, res.webpFileName);
-          const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
-          if (uploadRes.ok) {
-            showToast(`Photo ${res.webpFileName} compressée et téléversée sur Cloudflare R2 !`, 'success');
-            renderPhotos();
-            return;
-          }
-        } catch (_) {}
-
-        showToast(`Photo convertie en WebP (${res.webpFileName}) : ${origStr} → ${compStr} (-${res.savings}%). Prête pour utilisation.`, 'success');
-      } catch (err) {
-        showToast(`Erreur conversion image: ${err.message}`, 'warning');
-      }
-    }
 
     // Forms submit handlers
     $('dishForm')?.addEventListener('submit', handleDishFormSubmit);
@@ -1254,7 +1440,7 @@
     $('settingsForm')?.addEventListener('submit', handleSettingsSubmit);
     $('confirmDeleteCatBtn')?.addEventListener('click', confirmCategoryDelete);
 
-    // Global delegation for dynamic actions (edit, delete, toggle)
+    // Global delegation for dynamic actions (edit, delete, toggle, copy path)
     document.addEventListener('click', (e) => {
       const target = e.target.closest('[data-action]');
       if (!target) return;
@@ -1263,6 +1449,7 @@
       const catId = target.dataset.cat;
       const idx = target.dataset.idx !== undefined ? parseInt(target.dataset.idx, 10) : null;
       const id = target.dataset.id;
+      const path = target.dataset.path;
 
       if (action === 'edit-dish') {
         openDishModal(catId, idx);
@@ -1307,29 +1494,68 @@
           menu[idx + 1] = temp;
           saveMenu('Ordre des catégories mis à jour.');
         }
+      } else if (action === 'copy-img-path') {
+        if (path) {
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(path).then(() => {
+              showToast(`Chemin « ${path} » copié !`, 'success');
+            }).catch(() => {
+              showToast(`Chemin : ${path}`, 'info');
+            });
+          } else {
+            showToast(`Chemin : ${path}`, 'info');
+          }
+        }
       }
     });
 
-    // Logout button handler
-    $('logoutBtn')?.addEventListener('click', () => {
-      if (confirm('Voulez-vous vous déconnecter de la session administrateur ?')) {
-        // Clear local credentials or redirect to Cloudflare Access logout URL
-        location.href = '/cdn-cgi/access/logout';
-      }
+    // JSON Export
+    $('exportBtn')?.addEventListener('click', () => {
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(menu, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('download', `kamal-menu-backup-${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('Copie de sauvegarde du menu exportée.', 'success');
+    });
+
+    // Logout
+    $('logoutBtn')?.addEventListener('click', handleLogout);
+  }
+
+  function setupAuthEventListeners() {
+    $('loginForm')?.addEventListener('submit', handleLoginFormSubmit);
+    $('setupForm')?.addEventListener('submit', handleSetupFormSubmit);
+
+    $('switchToLoginBtn')?.addEventListener('click', () => {
+      $('setupForm').hidden = true;
+      $('loginForm').hidden = false;
+    });
+
+    $('switchToSetupBtn')?.addEventListener('click', () => {
+      $('loginForm').hidden = true;
+      $('setupForm').hidden = false;
     });
   }
 
   // --------------------------------------------------------------------------
-  // 13. BOOTSTRAP INITIAL
+  // 14. INITIALISATION DE L'APPLICATION
   // --------------------------------------------------------------------------
   async function init() {
-    await loadInitialMenu();
-    await loadSettings();
-    populateCategoryFilters();
-    refreshAll();
     setupEventListeners();
-    await checkBackendConnection();
-    showView('overview');
+    setupAuthEventListeners();
+
+    const authenticated = await checkAuthAndInit();
+    if (authenticated) {
+      await loadInitialMenu();
+      await loadSettings();
+      populateCategoryFilters();
+      refreshAll();
+      await checkBackendConnection();
+      showView('overview');
+    }
   }
 
   document.addEventListener('DOMContentLoaded', init);

@@ -1,0 +1,28 @@
+# ==============================================================================
+# CLOUDFLARE WORKER CONFIGURATION (100% FREE PLAN)
+# Project: Pizzeria Kamal - Digital Menu & Admin Dashboard
+# Root configuration for deploying from project root
+# ==============================================================================
+
+name = "pizzeria-kamal-menu"
+main = "backend/worker.js"
+compatibility_date = "2024-09-23"
+
+# 1. Cloudflare D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "kamal-menu-db"
+database_id = "e09e075c-0342-4372-b9dc-98f9b9c9673c"
+
+# 2. Static Assets (Free Workers Assets Serving Frontend on Same Origin)
+[assets]
+directory = "./"
+binding = "ASSETS"
+
+# 3. Environment Variables
+[vars]
+ALLOWED_ORIGIN = "https://pizzeria-kamal-menu.kebabkamal.workers.dev"
+
+# 4. Observability & Logging
+[observability]
+enabled = true

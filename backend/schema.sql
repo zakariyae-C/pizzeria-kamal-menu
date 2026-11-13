@@ -55,6 +55,43 @@ CREATE TABLE IF NOT EXISTS restaurant_settings (
   value TEXT NOT NULL
 );
 
+-- 5. Admin Users Table (Custom Authentication)
+CREATE TABLE IF NOT EXISTS admin_users (
+  id TEXT PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  salt TEXT NOT NULL,
+  iterations INTEGER NOT NULL DEFAULT 100000,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email);
+
+-- 6. Admin Sessions Table (Stores SHA-256 hashed session tokens)
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  user_agent TEXT,
+  ip TEXT,
+  FOREIGN KEY (user_id) REFERENCES admin_users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON admin_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON admin_sessions(user_id);
+
+-- 7. Login Attempts Table (Brute-force protection)
+CREATE TABLE IF NOT EXISTS login_attempts (
+  key TEXT PRIMARY KEY,
+  attempt_count INTEGER DEFAULT 1,
+  first_attempt_at INTEGER NOT NULL,
+  locked_until INTEGER DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_attempts_locked ON login_attempts(locked_until);
+
 -- ============================================================================
 -- INITIAL SEED DATA (INSERT OR IGNORE makes reruns non-destructive)
 -- ============================================================================

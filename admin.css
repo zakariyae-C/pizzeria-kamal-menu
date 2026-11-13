@@ -2150,3 +2150,207 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   AUTHENTICATION & LOGIN SCREEN STYLES
+   ========================================================================== */
+.auth-screen-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 20%, #FCF6E8 0%, #F5EBD6 60%, #EBE0C8 100%);
+  padding: 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  padding: 36px 32px;
+  animation: authCardFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes authCardFadeIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.auth-brand {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-logo {
+  width: 68px;
+  height: 68px;
+  border-radius: var(--radius-md);
+  object-fit: contain;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+  background-color: #FFF;
+  padding: 4px;
+  border: 1px solid var(--border-subtle);
+}
+
+.auth-title {
+  font-family: var(--font-arabic);
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--text-headings);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.auth-subtitle {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-alert {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.auth-alert.error {
+  background-color: var(--danger-red-light);
+  color: var(--danger-red);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.auth-alert.success {
+  background-color: var(--success-green-light);
+  color: var(--success-green);
+  border: 1px solid var(--success-green-border);
+}
+
+.auth-alert.info {
+  background-color: var(--brand-orange-light);
+  color: var(--dark-brown);
+  border: 1px solid var(--brand-orange-border);
+}
+
+.auth-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.auth-field-icon {
+  position: absolute;
+  left: 12px;
+  width: 18px;
+  height: 18px;
+  stroke: var(--text-muted);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.auth-input-wrap input {
+  width: 100%;
+  padding: 11px 14px 11px 40px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background-color: #FAFAFA;
+  color: var(--text-main);
+  font-size: 0.92rem;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+.auth-input-wrap input:focus {
+  outline: none;
+  border-color: var(--primary-red);
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px var(--primary-red-border);
+}
+
+.btn-block {
+  width: 100%;
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-sm);
+}
+
+.auth-footer-links {
+  text-align: center;
+  margin-top: 8px;
+}
+
+.auth-back-link {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.auth-back-link:hover {
+  color: var(--primary-red);
+}
+
+.auth-switch-link {
+  font-size: 0.85rem;
+  color: var(--primary-red);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.setup-badge {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background-color: var(--brand-orange-light);
+  color: var(--brand-orange-hover);
+  border: 1px solid var(--brand-orange-border);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.setup-desc {
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+/* Category image button in dish form */
+.input-with-button-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.input-with-button-group input {
+  flex: 1;
+}
+
+.input-with-button-group button {
+  white-space: nowrap;
+  font-size: 0.8rem;
+  padding: 8px 12px;
+}
