@@ -468,44 +468,6 @@
     if ($('catsNavBadge')) $('catsNavBadge').textContent = totalCategories;
     if ($('featuredNavBadge')) $('featuredNavBadge').textContent = featuredDishes;
 
-    // Recent dishes table (latest 7 items)
-    const recentTable = $('recentDishesTable');
-    if (recentTable) {
-      const recent = [...dishes].reverse().slice(0, 7);
-      recentTable.innerHTML = recent
-        .map((d) => {
-          const pricesText = d.prices && d.prices.length > 1
-            ? d.prices.map((p) => `${p.label ? p.label + ': ' : ''}${fmt(p.amount)}`).join(' · ')
-            : fmt(d.p);
-
-          return `
-            <tr>
-              <td>
-                <div class="table-dish-info">
-                  <img src="${esc(d.img || 'img/logo.webp')}" class="table-dish-thumb" alt="${esc(d.n)}" onerror="this.src='img/logo.webp'">
-                  <div>
-                    <strong>${esc(d.n)}</strong>
-                    <span class="table-dish-sub">${esc(d.d || 'Sans description')}</span>
-                  </div>
-                </div>
-              </td>
-              <td><span class="category-pill">${esc(d.categoryIcon)} ${esc(d.categoryName)}</span></td>
-              <td><span class="price-pill">${esc(pricesText)}</span></td>
-              <td>
-                <span class="status-badge ${d.available !== false ? 'available' : 'unavailable'}">
-                  ${d.available !== false ? 'Disponible' : 'Masqué'}
-                </span>
-              </td>
-              <td>
-                <button class="btn btn-sm btn-ghost" data-action="edit-dish" data-cat="${esc(d.categoryId)}" data-idx="${d.index}">
-                  Modifier
-                </button>
-              </td>
-            </tr>
-          `;
-        })
-        .join('');
-    }
 
     // Category distribution bars
     const barsList = $('categoryBarsList');
